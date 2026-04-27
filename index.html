@@ -219,6 +219,93 @@ footer {
   border-top: 1px solid var(--border);
   margin-top: 4px;
 }
+/* ── snapshot bar ── */
+.snapshot-bar {
+  background: var(--card2);
+  border-bottom: 1px solid var(--border);
+  padding: 8px 24px;
+  display: flex; align-items: center; gap: 16px;
+  font-size: 12px;
+}
+.snapshot-time {
+  font-weight: 700; color: var(--green-hi); font-size: 13px;
+}
+.snapshot-note { color: var(--text2); font-style: italic; }
+.live-dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--green-hi);
+  box-shadow: 0 0 0 0 var(--green-hi);
+  animation: pulse-green 2s infinite;
+  display: inline-block;
+}
+@keyframes pulse-green {
+  0%   { box-shadow: 0 0 0 0 rgba(109,217,109,.7); }
+  70%  { box-shadow: 0 0 0 8px rgba(109,217,109,0); }
+  100% { box-shadow: 0 0 0 0 rgba(109,217,109,0); }
+}
+/* ── booth grid ── */
+.booth-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+  padding: 14px 18px;
+}
+.booth-card {
+  background: var(--card2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+}
+.booth-card-header {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 10px 14px 8px;
+  border-bottom: 1px solid var(--border);
+}
+.booth-name { font-weight: 800; font-size: 15px; }
+.booth-machine { font-size: 11px; color: var(--text2); }
+.booth-status-row {
+  display: flex; align-items: center; gap: 6px;
+  padding: 6px 14px;
+  font-size: 11px; font-weight: 600; letter-spacing: .5px;
+}
+.status-run-dot {
+  width: 9px; height: 9px; border-radius: 50%;
+  background: var(--green-hi);
+  box-shadow: 0 0 0 0 var(--green-hi);
+  animation: pulse-green 1.5s infinite;
+}
+.status-idle-dot  { width: 9px; height: 9px; border-radius: 50%; background: #555; }
+.status-sched-dot { width: 9px; height: 9px; border-radius: 50%; background: var(--amber); }
+.booth-body { padding: 8px 14px 12px; }
+.booth-wo { font-size: 13px; font-weight: 700; margin-bottom: 2px; }
+.booth-item {
+  display: flex; gap: 6px; align-items: center;
+  font-size: 11px; color: var(--text2); margin-bottom: 3px;
+}
+.booth-desc { font-size: 11px; color: var(--text); margin-bottom: 8px; line-height: 1.3; }
+.booth-times { display: grid; grid-template-columns: 14px 1fr; gap: 2px 4px; font-size: 11px; }
+.booth-times .lbl { color: var(--text2); }
+.booth-times .val { color: var(--text); }
+.booth-meta {
+  display: flex; gap: 10px; margin-top: 8px; padding-top: 7px;
+  border-top: 1px solid var(--border);
+  font-size: 11px; color: var(--text2);
+}
+.booth-meta strong { color: var(--text); }
+.booth-idle-badge {
+  display: inline-block; padding: 2px 7px;
+  border-radius: 10px; font-size: 10px; font-weight: 600;
+  background: rgba(255,255,255,.07); color: var(--text2);
+  margin-top: 6px;
+}
+.booth-run-badge {
+  display: inline-block; padding: 2px 7px;
+  border-radius: 10px; font-size: 10px; font-weight: 600;
+  background: rgba(109,217,109,.15); color: var(--green-hi);
+}
+@media (max-width: 1100px) {
+  .booth-grid { grid-template-columns: repeat(2, 1fr); }
+}
 /* ── product type toggle ── */
 .ptype-tabs { display: flex; gap: 4px; flex-wrap: wrap; }
 .ptype-btn {
@@ -338,55 +425,62 @@ footer {
 
 <!-- ═══ WC DETAIL TAB ════════════════════════════════════════════════════ -->
 <div id="wc-view">
-  <div style="padding:16px 24px;">
 
-    <!-- summary row -->
-    <div class="kpi-row" style="margin-bottom:16px">
-      <div class="kpi green">
-        <div class="kpi-label">Active Jobs in Last 7 Days</div>
-        <div class="kpi-value" id="wc-active-jobs">—</div>
-        <div class="kpi-sub">across all compression / coating WCs</div>
-      </div>
-      <div class="kpi amber">
-        <div class="kpi-label">Biggest Bottleneck WC</div>
-        <div class="kpi-value" style="font-size:18px" id="wc-top-wc">—</div>
-        <div class="kpi-sub">highest avg waiting into this centre</div>
-      </div>
-      <div class="kpi purple">
-        <div class="kpi-label">Avg Wait Before Packaging</div>
-        <div class="kpi-value" id="wc-pkg-wait">—</div>
-        <div class="kpi-sub">days from mfg complete → pkg start</div>
-      </div>
-      <div class="kpi red">
-        <div class="kpi-label">PCT vs Target Gap</div>
-        <div class="kpi-value" id="wc-gap">—</div>
-        <div class="kpi-sub">days above 17-day target</div>
-      </div>
+  <!-- snapshot bar -->
+  <div class="snapshot-bar">
+    <span class="live-dot"></span>
+    <span style="color:var(--text2);font-size:12px">Snapshot as at&nbsp;</span>
+    <span class="snapshot-time" id="snapshot-time">—</span>
+    <span class="snapshot-note">· Historical data</span>
+  </div>
+
+  <!-- KPI summary row -->
+  <div class="kpi-row" style="padding-top:14px">
+    <div class="kpi green">
+      <div class="kpi-label">Booths Running</div>
+      <div class="kpi-value" id="wc-running">—</div>
+      <div class="kpi-sub">of 8 compression booths</div>
     </div>
-
-    <!-- WC status grid -->
-    <div class="panel">
-      <div class="panel-header">
-        <span class="panel-title">Work Centre — Recent & Scheduled Activity (last 7 days)</span>
-      </div>
-      <div class="panel-body">
-        <div class="wc-grid" id="wc-grid"></div>
-      </div>
+    <div class="kpi amber">
+      <div class="kpi-label">Booths Idle</div>
+      <div class="kpi-value" id="wc-idle">—</div>
+      <div class="kpi-sub">awaiting next job</div>
     </div>
+    <div class="kpi purple">
+      <div class="kpi-label">Avg Wait → Compression</div>
+      <div class="kpi-value" id="wc-comp-wait">—</div>
+      <div class="kpi-sub">days from dispensing finish</div>
+    </div>
+    <div class="kpi red">
+      <div class="kpi-label">PCT vs Target Gap</div>
+      <div class="kpi-value" id="wc-gap">—</div>
+      <div class="kpi-sub">days above 17-day target</div>
+    </div>
+  </div>
 
-    <!-- bottom charts side by side -->
-    <div class="main-grid" style="margin-top:16px">
+  <!-- booth grid -->
+  <div class="panel" style="margin:14px 24px 0">
+    <div class="panel-header">
+      <span class="panel-title">Compression Booths — Status Overview</span>
+      <span style="font-size:11px;color:var(--text2)">8 booths</span>
+    </div>
+    <div class="booth-grid" id="booth-grid"></div>
+  </div>
+
+  <!-- bottom: WC wait chart -->
+  <div style="padding:16px 24px 16px">
+    <div class="main-grid">
       <div class="panel">
         <div class="panel-header">
-          <span class="panel-title">Waiting Time by Work Centre</span>
+          <span class="panel-title">Waiting Time by Work Centre (Outgoing)</span>
         </div>
         <div class="panel-body">
           <div class="chart-wrap"><canvas id="wcBarChart"></canvas></div>
         </div>
       </div>
     </div>
-
   </div>
+
 </div>
 
 <footer>
@@ -1996,7 +2090,442 @@ const DATA = {
         }
       ]
     }
-  }
+  },
+  "compression_booths": [
+    {
+      "name": "TC1-Korsch 1",
+      "short": "TC1",
+      "machine": "Korsch 1",
+      "status": "IDLE",
+      "idle_h": 6.0,
+      "queue": 0,
+      "current": {
+        "wo": 1664604,
+        "item": "8700586",
+        "desc": "BLK DETOX B + ENERGY TABS",
+        "qty": "650",
+        "type": "TC",
+        "run_h": 10.8,
+        "start": "22 Apr, 14:09",
+        "finish": "23 Apr, 00:59",
+        "duration": "10h 50m"
+      },
+      "recent": [
+        {
+          "wo": 1664189,
+          "item": "8700586",
+          "desc": "BLK DETOX B + ENERGY TABS",
+          "qty": "650",
+          "type": "TC",
+          "run_h": 10.8,
+          "start": "20 Apr, 11:20",
+          "finish": "21 Apr, 00:44",
+          "duration": "13h 23m"
+        },
+        {
+          "wo": 1664190,
+          "item": "8700586",
+          "desc": "BLK DETOX B + ENERGY TABS",
+          "qty": "650",
+          "type": "TC",
+          "run_h": 10.8,
+          "start": "21 Apr, 00:44",
+          "finish": "22 Apr, 01:29",
+          "duration": "24h 45m"
+        },
+        {
+          "wo": 1664603,
+          "item": "8700586",
+          "desc": "BLK DETOX B + ENERGY TABS",
+          "qty": "650",
+          "type": "TC",
+          "run_h": 10.8,
+          "start": "22 Apr, 01:29",
+          "finish": "22 Apr, 10:04",
+          "duration": "8h 35m"
+        }
+      ]
+    },
+    {
+      "name": "TC2-Korsch 2",
+      "short": "TC2",
+      "machine": "Korsch 2",
+      "status": "IDLE",
+      "idle_h": 29.5,
+      "queue": 0,
+      "current": {
+        "wo": 1664621,
+        "item": "8700482",
+        "desc": "BLK ZINC PLUS 25MG TABLETS",
+        "qty": "1600",
+        "type": "TC",
+        "run_h": 16.0,
+        "start": "20 Apr, 16:45",
+        "finish": "22 Apr, 01:32",
+        "duration": "32h 46m"
+      },
+      "recent": [
+        {
+          "wo": 1664193,
+          "item": "8700604",
+          "desc": "BLK HIGH STRENGTH MAGNESIUM 350MG TAB",
+          "qty": "680",
+          "type": "TC",
+          "run_h": 17.0,
+          "start": "16 Apr, 09:14",
+          "finish": "16 Apr, 15:25",
+          "duration": "6h 10m"
+        },
+        {
+          "wo": 1664194,
+          "item": "8700604",
+          "desc": "BLK HIGH STRENGTH MAGNESIUM 350MG TAB",
+          "qty": "680",
+          "type": "TC",
+          "run_h": 17.0,
+          "start": "16 Apr, 15:51",
+          "finish": "17 Apr, 20:04",
+          "duration": "28h 13m"
+        },
+        {
+          "wo": 1664467,
+          "item": "8700482",
+          "desc": "BLK ZINC PLUS 25MG TABLETS",
+          "qty": "1600",
+          "type": "TC",
+          "run_h": 16.0,
+          "start": "20 Apr, 10:12",
+          "finish": "20 Apr, 16:45",
+          "duration": "6h 32m"
+        }
+      ]
+    },
+    {
+      "name": "TC 3-Kil",
+      "short": "TC3",
+      "machine": "Kilian",
+      "status": "RUN",
+      "idle_h": null,
+      "queue": 0,
+      "current": {
+        "wo": 1664833,
+        "item": "86ut2050",
+        "desc": "VITAMIN C 250MG TABLETS",
+        "qty": "1200",
+        "type": "TU",
+        "run_h": 16.0,
+        "start": "23 Apr, 01:13",
+        "finish": "\u2014",
+        "duration": "\u2014"
+      },
+      "recent": [
+        {
+          "wo": 1664653,
+          "item": "86UT2050",
+          "desc": "VITAMIN C 250MG TABLETS",
+          "qty": "1200",
+          "type": "",
+          "run_h": 16.0,
+          "start": "20 Apr, 00:39",
+          "finish": "20 Apr, 04:34",
+          "duration": "3h 54m"
+        },
+        {
+          "wo": 1664820,
+          "item": "86ut2050",
+          "desc": "VITAMIN C 250MG TABLETS",
+          "qty": "1200",
+          "type": "TU",
+          "run_h": 16.0,
+          "start": "20 Apr, 04:34",
+          "finish": "22 Apr, 01:32",
+          "duration": "44h 58m"
+        },
+        {
+          "wo": 1664821,
+          "item": "86ut2050",
+          "desc": "VITAMIN C 250MG TABLETS",
+          "qty": "1200",
+          "type": "TU",
+          "run_h": 16.0,
+          "start": "22 Apr, 01:32",
+          "finish": "22 Apr, 10:08",
+          "duration": "8h 35m"
+        }
+      ]
+    },
+    {
+      "name": "TC 4-Kil",
+      "short": "TC4",
+      "machine": "Kilian",
+      "status": "RUN",
+      "idle_h": null,
+      "queue": 0,
+      "current": {
+        "wo": 1664531,
+        "item": "8700632",
+        "desc": "BLK CAL 600MG & D 1000IU & K2 180MCG TAB",
+        "qty": "585",
+        "type": "TC",
+        "run_h": 9.8,
+        "start": "23 Apr, 05:39",
+        "finish": "\u2014",
+        "duration": "\u2014"
+      },
+      "recent": [
+        {
+          "wo": 1664528,
+          "item": "8700632",
+          "desc": "BLK CAL 600MG & D 1000IU & K2 180MCG TAB",
+          "qty": "585",
+          "type": "TC",
+          "run_h": 9.8,
+          "start": "22 Apr, 01:31",
+          "finish": "23 Apr, 01:13",
+          "duration": "23h 41m"
+        },
+        {
+          "wo": 1664529,
+          "item": "8700632",
+          "desc": "BLK CAL 600MG & D 1000IU & K2 180MCG TAB",
+          "qty": "585",
+          "type": "TC",
+          "run_h": 9.8,
+          "start": "22 Apr, 15:28",
+          "finish": "23 Apr, 01:13",
+          "duration": "9h 45m"
+        },
+        {
+          "wo": 1664530,
+          "item": "8700632",
+          "desc": "BLK CAL 600MG & D 1000IU & K2 180MCG TAB",
+          "qty": "585",
+          "type": "TC",
+          "run_h": 9.8,
+          "start": "23 Apr, 01:13",
+          "finish": "23 Apr, 05:39",
+          "duration": "4h 25m"
+        }
+      ]
+    },
+    {
+      "name": "TC 5-Bosch",
+      "short": "TC5",
+      "machine": "Bosch",
+      "status": "RUN",
+      "idle_h": null,
+      "queue": 0,
+      "current": {
+        "wo": 1663800,
+        "item": "8700575",
+        "desc": "BLK GARLIC 3000mg HARDSHELL CAPSULE",
+        "qty": "1278",
+        "type": "CH",
+        "run_h": 25.6,
+        "start": "22 Apr, 01:32",
+        "finish": "\u2014",
+        "duration": "\u2014"
+      },
+      "recent": [
+        {
+          "wo": 1664513,
+          "item": "8700597",
+          "desc": "BLK VALERIAN 2000MG CAPSULES",
+          "qty": "900",
+          "type": "CH",
+          "run_h": 18.0,
+          "start": "10 Apr, 08:42",
+          "finish": "13 Apr, 22:02",
+          "duration": "85h 19m"
+        },
+        {
+          "wo": 1662714,
+          "item": "8700140",
+          "desc": "BLK GARLIC HORSERADISH + C CAPSULE",
+          "qty": "1700",
+          "type": "CH",
+          "run_h": 31.5,
+          "start": "13 Apr, 22:02",
+          "finish": "17 Apr, 12:40",
+          "duration": "86h 38m"
+        },
+        {
+          "wo": 1664512,
+          "item": "8700140",
+          "desc": "BLK GARLIC HORSERADISH + C CAPSULE",
+          "qty": "1700",
+          "type": "CH",
+          "run_h": 31.5,
+          "start": "17 Apr, 12:41",
+          "finish": "22 Apr, 01:32",
+          "duration": "108h 51m"
+        }
+      ]
+    },
+    {
+      "name": "TC 6-Fette 1",
+      "short": "TC6",
+      "machine": "Fette 1",
+      "status": "RUN",
+      "idle_h": null,
+      "queue": 0,
+      "current": {
+        "wo": 1664709,
+        "item": "8700630",
+        "desc": "BLK VIT C + ZINC + D3 ORANGE CHW TA",
+        "qty": "465",
+        "type": "TU",
+        "run_h": 7.8,
+        "start": "23 Apr, 01:13",
+        "finish": "\u2014",
+        "duration": "\u2014"
+      },
+      "recent": [
+        {
+          "wo": 1664551,
+          "item": "8700650",
+          "desc": "BLK MAGNESIUM GLYCINATE TABLET",
+          "qty": "650",
+          "type": "TC",
+          "run_h": 10.8,
+          "start": "16 Apr, 21:58",
+          "finish": "17 Apr, 08:48",
+          "duration": "10h 50m"
+        },
+        {
+          "wo": 1664552,
+          "item": "8700650",
+          "desc": "BLK MAGNESIUM GLYCINATE TABLET",
+          "qty": "650",
+          "type": "TC",
+          "run_h": 10.8,
+          "start": "17 Apr, 08:48",
+          "finish": "20 Apr, 16:47",
+          "duration": "79h 58m"
+        },
+        {
+          "wo": 1664708,
+          "item": "8700630",
+          "desc": "BLK VIT C + ZINC + D3 ORANGE CHW TA",
+          "qty": "465",
+          "type": "TU",
+          "run_h": 7.8,
+          "start": "22 Apr, 17:28",
+          "finish": "23 Apr, 01:13",
+          "duration": "7h 45m"
+        }
+      ]
+    },
+    {
+      "name": "TC 7-Fette 2",
+      "short": "TC7",
+      "machine": "Fette 2",
+      "status": "RUN",
+      "idle_h": null,
+      "queue": 0,
+      "current": {
+        "wo": 1664237,
+        "item": "86UT1920",
+        "desc": "SUGARLESS C 500MG TABLETS",
+        "qty": "1100",
+        "type": "",
+        "run_h": 4.1,
+        "start": "23 Apr, 01:15",
+        "finish": "\u2014",
+        "duration": "\u2014"
+      },
+      "recent": [
+        {
+          "wo": 1664234,
+          "item": "86UT1920",
+          "desc": "SUGARLESS C 500MG TABLETS",
+          "qty": "1100",
+          "type": "",
+          "run_h": 4.1,
+          "start": "21 Apr, 08:33",
+          "finish": "21 Apr, 13:37",
+          "duration": "5h 04m"
+        },
+        {
+          "wo": 1664235,
+          "item": "86UT1920",
+          "desc": "SUGARLESS C 500MG TABLETS",
+          "qty": "1100",
+          "type": "",
+          "run_h": 4.1,
+          "start": "22 Apr, 02:12",
+          "finish": "22 Apr, 06:16",
+          "duration": "4h 04m"
+        },
+        {
+          "wo": 1664236,
+          "item": "86UT1920",
+          "desc": "SUGARLESS C 500MG TABLETS",
+          "qty": "1100",
+          "type": "",
+          "run_h": 4.1,
+          "start": "22 Apr, 21:11",
+          "finish": "23 Apr, 01:15",
+          "duration": "4h 04m"
+        }
+      ]
+    },
+    {
+      "name": "TC 8-Fette 3",
+      "short": "TC8",
+      "machine": "Fette 3",
+      "status": "IDLE",
+      "idle_h": 4.2,
+      "queue": 0,
+      "current": {
+        "wo": 1664119,
+        "item": "8700367",
+        "desc": "BLK CALCIUM 600MG & VIT D 500IU  TAB",
+        "qty": "810",
+        "type": "TC",
+        "run_h": 5.0,
+        "start": "22 Apr, 21:49",
+        "finish": "23 Apr, 02:49",
+        "duration": "4h 59m"
+      },
+      "recent": [
+        {
+          "wo": 1664116,
+          "item": "8700367",
+          "desc": "BLK CALCIUM 600MG & VIT D 500IU  TAB",
+          "qty": "810",
+          "type": "TC",
+          "run_h": 5.0,
+          "start": "21 Apr, 08:33",
+          "finish": "21 Apr, 13:37",
+          "duration": "5h 03m"
+        },
+        {
+          "wo": 1664117,
+          "item": "8700367",
+          "desc": "BLK CALCIUM 600MG & VIT D 500IU  TAB",
+          "qty": "810",
+          "type": "TC",
+          "run_h": 5.0,
+          "start": "22 Apr, 01:16",
+          "finish": "22 Apr, 06:16",
+          "duration": "4h 59m"
+        },
+        {
+          "wo": 1664118,
+          "item": "8700367",
+          "desc": "BLK CALCIUM 600MG & VIT D 500IU  TAB",
+          "qty": "810",
+          "type": "TC",
+          "run_h": 5.0,
+          "start": "22 Apr, 21:49",
+          "finish": "23 Apr, 02:49",
+          "duration": "4h 59m"
+        }
+      ]
+    }
+  ],
+  "snapshot_str": "23 Apr 2026 \u2014 07:00 AM"
 };
 
 // ── helpers ───────────────────────────────────────────────────────────────
