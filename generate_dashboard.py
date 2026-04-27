@@ -9,8 +9,8 @@ from collections import defaultdict
 import json, os, re
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-MFG_FILE = os.path.join(BASE_DIR, 'PRODUCTION SCHED - Manufacturing.xlsm')
-PKG_FILE = os.path.join(BASE_DIR, 'PRODUCTION SCHED - Packaging.xlsm')
+MFG_FILE = os.path.join(BASE_DIR, 'data', 'PRODUCTION SCHED - Manufacturing.xlsm')
+PKG_FILE = os.path.join(BASE_DIR, 'data', 'PRODUCTION SCHED - Packaging.xlsm')
 OUT_FILE = os.path.join(BASE_DIR, 'dashboard.html')
 
 PCT_TARGET_DAYS = 17
