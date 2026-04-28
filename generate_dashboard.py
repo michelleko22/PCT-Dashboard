@@ -3,10 +3,13 @@ PCT Waiting Time Dashboard Generator
 Reads Manufacturing and Packaging schedule files (synced from Teams via OneDrive),
 computes cycle time metrics, and generates a self-contained dashboard.html.
 
-Setup:
-  Set MFG_FILE and PKG_FILE below to the local OneDrive paths for each file.
-  In File Explorer, right-click the file → "Copy as path" to get the exact path.
-  The files stay up to date automatically as OneDrive syncs changes from Teams.
+The files are auto-synced from:
+  SharePoint: Virginia Supply Chain > Shared Documents > General > 05. Obeya
+
+If the script can't find the files, check what OneDrive named the sync folder:
+  Open File Explorer → look inside your home folder for a "Sanofi" folder,
+  then find a subfolder starting with "Virginia Supply Chain".
+  Update _ONEDRIVE_FOLDER below to match the exact name.
 """
 import openpyxl
 from datetime import datetime, timedelta
@@ -16,9 +19,18 @@ import json, os, re
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 OUT_FILE = os.path.join(BASE_DIR, 'dashboard.html')
 
-# ── File paths (update to your local OneDrive sync paths) ────────────────────
-MFG_FILE = r'C:\Users\YourName\OneDrive - OrgName\TeamName - General\PRODUCTION SCHED - Manufacturing.xlsm'
-PKG_FILE  = r'C:\Users\YourName\OneDrive - OrgName\TeamName - General\PRODUCTION SCHED - Packaging.xlsm'
+# ── File paths ────────────────────────────────────────────────────────────────
+# Derived from SharePoint site: VirginiaSupplyChain / Shared Documents / General / 05. Obeya
+# OneDrive syncs SharePoint sites to: ~\{Org}\{Site} - {Library}\{path}
+# Adjust _ONEDRIVE_FOLDER if OneDrive used a slightly different folder name.
+_ONEDRIVE_FOLDER = os.path.join(
+    os.path.expanduser('~'),
+    'Sanofi',
+    'Virginia Supply Chain - Shared Documents',
+    'General', '05. Obeya',
+)
+MFG_FILE = os.path.join(_ONEDRIVE_FOLDER, 'PRODUCTION SCHED - Manufacturing.xlsm')
+PKG_FILE  = os.path.join(_ONEDRIVE_FOLDER, 'PRODUCTION SCHED - Packaging.xlsm')
 
 PCT_TARGET_DAYS = 17
 
