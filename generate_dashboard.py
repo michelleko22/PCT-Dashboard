@@ -16,9 +16,15 @@ OUT_FILE = os.path.join(BASE_DIR, 'dashboard.html')
 PCT_TARGET_DAYS = 17
 
 # ── column maps (0-indexed) ──────────────────────────────────────────────────
+# COMPRESSION_STATUS_COL: column index for the run-status cell in compression sheets
+# (e.g. 'r' = released/ready, 'Wait-Disp' = waiting for dispensing)
+# Verify against the actual Excel layout and adjust if needed.
+COMPRESSION_STATUS_COL = 3
+QUEUE_STATUSES = {'r', 'wait-disp'}   # lowercased for comparison
+
 COLS = {
     'dispensing':   {'wo':5,'item':6,'qty':7,'desc':8,'run':2,'start':11,'finish':12},
-    'compression':  {'wo':5,'item':6,'qty':7,'desc':8,'run':2,'start':12,'finish':13},
+    'compression':  {'wo':5,'item':6,'qty':7,'desc':8,'run':2,'start':12,'finish':13,'status':COMPRESSION_STATUS_COL},
     'coating':      {'wo':6,'item':7,'qty':8,'desc':9,'run':3,'start':13,'finish':14},
     'encap_hard':   {'wo':5,'item':6,'qty':7,'desc':8,'run':2,'start':12,'finish':13},
     'sg_gel_disp':  {'wo':6,'item':7,'qty':8,'desc':9,'run':3,'start':12,'finish':13},
@@ -79,7 +85,9 @@ def extract_mfg(wb, step, sheets, cols):
             if wo is None or wo < 1_000_000: continue
             start  = as_dt(row[cols['start']])
             finish = as_dt(row[cols['finish']])
-            if start is None and finish is None: continue
+            status = as_str(row[cols['status']]).lower().strip() if 'status' in cols and cols['status'] < len(row) else ''
+            is_queue = status in QUEUE_STATUSES
+            if start is None and finish is None and not is_queue: continue
             # estimate start from run time if missing
             if start is None and finish is not None and 'run' in cols:
                 rt = row[cols['run']]
@@ -94,6 +102,7 @@ def extract_mfg(wb, step, sheets, cols):
                 'desc': as_str(row[cols['desc']]),
                 'start': start, 'finish': finish,
                 'run_h': run_h,
+                'status': status,
             })
     return records
 
@@ -693,18 +702,17 @@ for bname, short, machine in COMP_BOOTHS:
             'duration': dur_str(j.get('start'), j.get('finish')),
         }
 
-    # recent jobs (last 3 completed before snapshot, excluding current)
-    done_before = [j for j in jobs
-                   if j.get('finish') and j['finish'] <= SNAPSHOT_DT
-                   and j is not current][-3:]
+    # waiting queue: status 'r' or 'Wait-Disp', or future-scheduled with no finish yet
+    queue_jobs = [j for j in jobs
+                  if j.get('status', '') in QUEUE_STATUSES
+                  or (j.get('start') and j['start'] > SNAPSHOT_DT and not j.get('finish'))]
 
     compression_booths.append({
         'name': bname, 'short': short, 'machine': machine,
         'status': status,
         'idle_h': idle_h,
-        'queue': len([j for j in jobs if j.get('start') and j['start'] > SNAPSHOT_DT]),
         'current': make_job(current) if current else None,
-        'recent': [make_job(j) for j in done_before],
+        'queue_items': [make_job(j) for j in queue_jobs],
     })
     print(f"  booth {short}: {status}, {len(jobs)} jobs, idle {idle_h}h")
 
