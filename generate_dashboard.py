@@ -1,36 +1,34 @@
 """
 PCT Waiting Time Dashboard Generator
-Reads Manufacturing and Packaging schedule files (synced from Teams via OneDrive),
+Downloads Manufacturing and Packaging schedule files directly from SharePoint,
 computes cycle time metrics, and generates a self-contained dashboard.html.
 
-The files are auto-synced from:
-  SharePoint: Virginia Supply Chain > Shared Documents > General > 05. Obeya
+Run:  python generate_dashboard.py
+      You will be prompted for your Sanofi email and password.
 
-If the script can't find the files, check what OneDrive named the sync folder:
-  Open File Explorer → look inside your home folder for a "Sanofi" folder,
-  then find a subfolder starting with "Virginia Supply Chain".
-  Update _ONEDRIVE_FOLDER below to match the exact name.
+Requires:  pip install Office365-REST-Python-Client openpyxl
 """
+import io, json, os, re, getpass
 import openpyxl
 from datetime import datetime, timedelta
 from collections import defaultdict
-import json, os, re
+from office365.runtime.auth.user_credential import UserCredential
+from office365.sharepoint.client_context import ClientContext
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 OUT_FILE = os.path.join(BASE_DIR, 'dashboard.html')
 
-# ── File paths ────────────────────────────────────────────────────────────────
-# Derived from SharePoint site: VirginiaSupplyChain / Shared Documents / General / 05. Obeya
-# OneDrive syncs SharePoint sites to: ~\{Org}\{Site} - {Library}\{path}
-# Adjust _ONEDRIVE_FOLDER if OneDrive used a slightly different folder name.
-_ONEDRIVE_FOLDER = os.path.join(
-    os.path.expanduser('~'),
-    'Sanofi',
-    'Virginia Supply Chain - Shared Documents',
-    'General', '05. Obeya',
-)
-MFG_FILE = os.path.join(_ONEDRIVE_FOLDER, 'PRODUCTION SCHED - Manufacturing.xlsm')
-PKG_FILE  = os.path.join(_ONEDRIVE_FOLDER, 'PRODUCTION SCHED - Packaging.xlsm')
+# ── SharePoint file locations ─────────────────────────────────────────────────
+SHAREPOINT_SITE = 'https://sanofi.sharepoint.com/sites/VirginiaSupplyChain'
+_OBEYA          = '/sites/VirginiaSupplyChain/Shared Documents/General/05. Obeya'
+MFG_SP_PATH     = f'{_OBEYA}/PRODUCTION SCHED - Manufacturing.xlsm'
+PKG_SP_PATH     = f'{_OBEYA}/PRODUCTION SCHED - Packaging.xlsm'
+
+def download_wb(ctx, server_relative_url):
+    buf = io.BytesIO()
+    ctx.web.get_file_by_server_relative_url(server_relative_url).download(buf).execute_query()
+    buf.seek(0)
+    return openpyxl.load_workbook(buf, read_only=True, data_only=True)
 
 PCT_TARGET_DAYS = 17
 
@@ -192,9 +190,14 @@ def extract_pkg(wb, sheets, cols):
     return records
 
 # ── main extraction ───────────────────────────────────────────────────────────
-print("Loading workbooks…")
-wb_mfg = openpyxl.load_workbook(MFG_FILE, read_only=True, data_only=True)
-wb_pkg = openpyxl.load_workbook(PKG_FILE,  read_only=True, data_only=True)
+print("Connecting to SharePoint…")
+_email    = input('Sanofi email: ')
+_password = getpass.getpass('Password: ')
+ctx = ClientContext(SHAREPOINT_SITE).with_credentials(UserCredential(_email, _password))
+
+print("Downloading workbooks…")
+wb_mfg = download_wb(ctx, MFG_SP_PATH)
+wb_pkg = download_wb(ctx, PKG_SP_PATH)
 
 product_types = load_product_types(wb_mfg)
 
