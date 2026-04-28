@@ -409,7 +409,7 @@ footer {
       <div class="panel-body">
         <div class="chart-wrap" style="height:280px"><canvas id="dailyBar"></canvas></div>
         <div style="font-size:10px;color:var(--text2);margin-top:6px">
-          ■ Solid = active process time &nbsp;│&nbsp; ░ Light = waiting time between steps &nbsp;│&nbsp; Y-axis in hours
+          ■ Solid = active process time &nbsp;│&nbsp; ░ Light = waiting time between steps
         </div>
       </div>
     </div>
@@ -2625,7 +2625,7 @@ function renderDailyChart(ptype) {
         legend: {
           position: 'bottom',
           labels: {
-            color: '#b8ccb5', boxWidth: 14, font: { size: 11 },
+            color: '#ffffff', boxWidth: 14, font: { size: 11 },
             generateLabels: chart => chart.data.datasets.map((ds, i) => ({
               text: ds.label,
               fillStyle: ds.backgroundColor,
@@ -2733,45 +2733,60 @@ function renderTable(rows) {
 // ── WC detail view ────────────────────────────────────────────────────────
 function renderWCDetail() {
   const d = DATA.kpi;
-  document.getElementById('wc-active-jobs').textContent = DATA.active_wos.length;
-  // top WC from bottleneck
-  const topBT = DATA.top_bottlenecks[0];
-  document.getElementById('wc-top-wc').textContent = topBT ? topBT.transition.split('→')[1].trim() : '—';
-  // avg pkg wait
-  const pkgWaits = DATA.detail_table.filter(r => r.transition.includes('Packaging'));
-  const avgPkg = pkgWaits.length ? (pkgWaits.reduce((s,r)=>s+r.wait_d,0)/pkgWaits.length).toFixed(1) : d.avg_wait_days;
-  document.getElementById('wc-pkg-wait').textContent = avgPkg + 'd';
+
+  // KPI cards
+  const running = DATA.compression_booths.filter(b => b.status === 'RUN').length;
+  const idle    = DATA.compression_booths.filter(b => b.status === 'IDLE').length;
+  document.getElementById('wc-running').textContent = running;
+  document.getElementById('wc-idle').textContent    = idle;
+
+  const compWaits = DATA.detail_table.filter(r => r.transition && r.transition.includes('Compression'));
+  const avgCompWait = compWaits.length
+    ? (compWaits.reduce((s,r)=>s+r.wait_d,0)/compWaits.length).toFixed(1) + 'd'
+    : '—';
+  document.getElementById('wc-comp-wait').textContent = avgCompWait;
   document.getElementById('wc-gap').textContent = (d.avg_pct - d.pct_target).toFixed(1) + 'd';
 
-  // WC grid
-  const grid = document.getElementById('wc-grid');
-  const statusMap = {'Finished':'DONE','f':'DONE','p':'PKG','m':'SCHED'};
-  const wcNames = [...new Set(DATA.active_wos.map(w => w.wc))].slice(0,12);
-
-  // Group by WC, take latest WO
-  const byWC = {};
-  DATA.active_wos.forEach(w => {
-    if (!byWC[w.wc] || (w.finish && byWC[w.wc].finish < w.finish)) byWC[w.wc] = w;
+  document.getElementById('snapshot-time').textContent = new Date().toLocaleString('en-AU',{
+    day:'2-digit', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit'
   });
 
-  grid.innerHTML = Object.entries(byWC).slice(0,12).map(([wc, w]) => {
-    const statusStr = w.finish ? 'DONE' : w.start ? 'RUN' : 'SCHED';
-    const dotCls = statusStr === 'RUN' ? 'status-run' : statusStr === 'DONE' ? 'status-idle' : 'status-setup';
-    const startStr = w.start ? new Date(w.start).toLocaleString('en-AU',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'}) : '—';
-    const finishStr = w.finish ? new Date(w.finish).toLocaleString('en-AU',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'}) : '—';
+  // Booth grid
+  document.getElementById('booth-grid').innerHTML = DATA.compression_booths.map(b => {
+    const isRun = b.status === 'RUN';
+    const cur   = b.current || {};
+    const badge = isRun
+      ? `<span class="booth-run-badge">RUNNING</span>`
+      : `<span class="booth-idle-badge">IDLE${b.idle_h != null ? ' ' + b.idle_h + 'h' : ''}</span>`;
     return `
-      <div class="wc-card">
-        <div class="wc-card-name">${wc.replace('TC1-','TC1 ').replace('TC2-','TC2 ')}</div>
-        <div class="wc-card-status">
-          <span class="status-dot ${dotCls}"></span>
-          ${statusStr}
+      <div class="booth-card">
+        <div class="booth-card-header">
+          <div>
+            <div class="booth-name">${b.short}</div>
+            <div class="booth-machine">${b.machine}</div>
+          </div>
+          ${badge}
         </div>
-        <div class="wc-wo">WO: ${w.wo}</div>
-        <div class="wc-item">${w.item}</div>
-        <div class="wc-time">▶ ${startStr}</div>
-        <div class="wc-time">■ ${finishStr}</div>
+        <div class="booth-status-row">
+          <span class="${isRun ? 'status-run-dot' : 'status-idle-dot'}"></span>
+          ${isRun ? 'Running' : 'Idle'}
+        </div>
+        <div class="booth-body">
+          ${cur.wo ? `
+            <div class="booth-wo">WO: ${cur.wo}</div>
+            <div class="booth-item"><span>${cur.item || ''}</span></div>
+            <div class="booth-desc">${cur.desc || ''}</div>
+            <div class="booth-times">
+              <span class="lbl">▶</span><span class="val">${cur.start || '—'}</span>
+              <span class="lbl">■</span><span class="val">${cur.finish || '—'}</span>
+            </div>
+            <div class="booth-meta">
+              <span>Qty: <strong>${cur.qty || '—'}</strong></span>
+              <span>Run: <strong>${cur.duration || '—'}</strong></span>
+            </div>` : '<p style="color:var(--text2);font-size:12px;margin:0">No current job</p>'}
+        </div>
       </div>`;
-  }).join('') || '<p style="color:var(--text2)">No recent activity data</p>';
+  }).join('');
 
   // WC bar chart
   const wcWaits = {};
