@@ -384,8 +384,8 @@ footer {
   <!-- main grid -->
   <div class="main-grid">
 
-    <!-- left: daily stacked bar by product type -->
-    <div class="panel">
+    <!-- full width: daily stacked bar by product type -->
+    <div class="panel full-panel">
       <div class="panel-header" style="flex-wrap:wrap;gap:8px">
         <span class="panel-title">Batch Cycle Time Breakdown — Daily (Hrs)</span>
         <div class="ptype-tabs" id="ptype-tabs">
@@ -401,14 +401,6 @@ footer {
           ■ Solid = active process time &nbsp;│&nbsp; ░ Light = waiting time between steps &nbsp;│&nbsp; Y-axis in hours
         </div>
       </div>
-    </div>
-
-    <!-- right: top bottlenecks -->
-    <div class="panel">
-      <div class="panel-header">
-        <span class="panel-title">Top Bottlenecks — Avg Waiting Days per Transition</span>
-      </div>
-      <div class="panel-body" id="bottleneck-bars"></div>
     </div>
 
     <!-- full width: detail table -->
@@ -2663,6 +2655,7 @@ function switchPtype(ptype, btn) {
 // ── bottleneck bars ───────────────────────────────────────────────────────
 function renderBottlenecks(data) {
   const wrap = document.getElementById('bottleneck-bars');
+  if (!wrap) return;
   if (!data || data.length === 0) { wrap.innerHTML = '<p style="color:var(--text2)">No data</p>'; return; }
   const maxVal = Math.max(...data.map(r => r.avg_wait_d));
   wrap.innerHTML = data.slice(0,8).map(r => {
