@@ -1,7 +1,15 @@
 """
 PCT Waiting Time Dashboard Generator
-Reads Manufacturing and Packaging Excel schedules, computes cycle time metrics,
-and generates a self-contained dashboard.html.
+Reads Manufacturing and Packaging schedule files (synced from Teams via OneDrive),
+computes cycle time metrics, and generates a self-contained dashboard.html.
+
+The files are auto-synced from:
+  SharePoint: Virginia Supply Chain > Shared Documents > General > 05. Obeya
+
+If the script can't find the files, check what OneDrive named the sync folder:
+  Open File Explorer → look inside your home folder for a "Sanofi" folder,
+  then find a subfolder starting with "Virginia Supply Chain".
+  Update _ONEDRIVE_FOLDER below to match the exact name.
 """
 import openpyxl
 from datetime import datetime, timedelta
@@ -9,9 +17,20 @@ from collections import defaultdict
 import json, os, re
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-MFG_FILE = os.path.join(BASE_DIR, 'data', 'PRODUCTION SCHED - Manufacturing.xlsm')
-PKG_FILE = os.path.join(BASE_DIR, 'data', 'PRODUCTION SCHED - Packaging.xlsm')
 OUT_FILE = os.path.join(BASE_DIR, 'dashboard.html')
+
+# ── File paths ────────────────────────────────────────────────────────────────
+# Derived from SharePoint site: VirginiaSupplyChain / Shared Documents / General / 05. Obeya
+# OneDrive syncs SharePoint sites to: ~\{Org}\{Site} - {Library}\{path}
+# Adjust _ONEDRIVE_FOLDER if OneDrive used a slightly different folder name.
+_ONEDRIVE_FOLDER = os.path.join(
+    os.path.expanduser('~'),
+    'Sanofi',
+    'Virginia Supply Chain - Shared Documents',
+    'General', '05. Obeya',
+)
+MFG_FILE = os.path.join(_ONEDRIVE_FOLDER, 'PRODUCTION SCHED - Manufacturing.xlsm')
+PKG_FILE  = os.path.join(_ONEDRIVE_FOLDER, 'PRODUCTION SCHED - Packaging.xlsm')
 
 PCT_TARGET_DAYS = 17
 
@@ -52,84 +71,119 @@ MFG_SHEETS = {
 }
 PKG_SHEETS = ['VFILLDU1','VFILLTRI','VFILLCR1','VFILLDU2','VFILLBL1']
 
+_DT_FMTS = (
+    '%d/%m/%Y %H:%M:%S', '%m/%d/%Y %H:%M:%S',
+    '%Y-%m-%d %H:%M:%S', '%Y-%m-%dT%H:%M:%S',
+    '%d/%m/%Y %H:%M',    '%m/%d/%Y %H:%M',
+    '%Y-%m-%d %H:%M',
+    '%d/%m/%Y',          '%m/%d/%Y',          '%Y-%m-%d',
+)
+
 def as_dt(v):
-    return v if isinstance(v, datetime) else None
+    if isinstance(v, datetime):
+        return v
+    s = str(v).strip() if v is not None else ''
+    if not s:
+        return None
+    # Google Sheets may return numeric serial strings
+    try:
+        n = float(s)
+        if 40000 < n < 60000:
+            return datetime(1899, 12, 30) + timedelta(days=n)
+    except ValueError:
+        pass
+    for fmt in _DT_FMTS:
+        try:
+            return datetime.strptime(s, fmt)
+        except ValueError:
+            pass
+    return None
 
 def as_int(v):
-    try: return int(v)
-    except: return None
+    s = str(v).strip() if v is not None else ''
+    if not s:
+        return None
+    try:
+        return int(float(s))
+    except (ValueError, TypeError):
+        return None
+
+def as_float(v):
+    s = str(v).strip() if v is not None else ''
+    if not s:
+        return None
+    try:
+        return float(s)
+    except (ValueError, TypeError):
+        return None
 
 def as_str(v):
     return str(v).strip() if v is not None else ''
 
-# ── load product types ───────────────────────────────────────────────────────
+# ── load product types ────────────────────────────────────────────────────────
 def load_product_types(wb):
     ws = wb['Products']
     rows = list(ws.iter_rows(values_only=True))
-    # header at index 2, data from index 3
     types = {}
-    for r in rows[3:]:
+    for r in rows[3:]:   # header at index 2, data from index 3
         if r[0] is None: continue
         k = as_str(r[0])
-        t = as_str(r[2]) if r[2] else ''
+        t = as_str(r[2]) if len(r) > 2 and r[2] else ''
         if k and t:
             types[k] = t
     return types
 
-# ── extract work center records ──────────────────────────────────────────────
+# ── extract work center records ───────────────────────────────────────────────
 def extract_mfg(wb, step, sheets, cols):
     records = []
+    max_col = max(cols.values())
     for sname in sheets:
         if sname not in wb.sheetnames: continue
         ws = wb[sname]
         rows = list(ws.iter_rows(values_only=True))
         for row in rows[8:]:   # first 8 rows are header/summary
-            if len(row) <= max(cols.values()): continue
+            if len(row) <= max_col: continue
             wo = as_int(row[cols['wo']])
             if wo is None or wo < 1_000_000: continue
             start  = as_dt(row[cols['start']])
             finish = as_dt(row[cols['finish']])
-            status = as_str(row[cols['status']]).lower().strip() if 'status' in cols and cols['status'] < len(row) else ''
+            status = as_str(row[cols['status']]).lower() if 'status' in cols and cols['status'] < len(row) else ''
             is_queue = status in QUEUE_STATUSES
             if start is None and finish is None and not is_queue: continue
-            # estimate start from run time if missing
-            if start is None and finish is not None and 'run' in cols:
-                rt = row[cols['run']]
-                if isinstance(rt, (int, float)) and rt > 0:
-                    start = finish - timedelta(hours=float(rt))
-            rt = row[cols['run']] if 'run' in cols and cols['run'] < len(row) else None
-            run_h = float(rt) if isinstance(rt, (int, float)) and 0 < rt < 500 else None
-            ct = row[cols['clean']] if 'clean' in cols and cols['clean'] < len(row) else None
-            clean_h = float(ct) if isinstance(ct, (int, float)) and 0 < ct < 100 else None
+            run_h   = as_float(row[cols['run']])   if 'run'   in cols else None
+            clean_h = as_float(row[cols['clean']]) if 'clean' in cols else None
+            run_h   = run_h   if run_h   and 0 < run_h   < 500 else None
+            clean_h = clean_h if clean_h and 0 < clean_h < 100 else None
+            if start is None and finish is not None and run_h:
+                start = finish - timedelta(hours=run_h)
             records.append({
                 'wo': wo, 'step': step, 'wc': sname,
-                'item': as_str(row[cols['item']]),
-                'qty':  row[cols['qty']],
-                'desc': as_str(row[cols['desc']]),
-                'start': start, 'finish': finish,
-                'run_h': run_h, 'clean_h': clean_h,
+                'item':   as_str(row[cols['item']]),
+                'qty':    as_str(row[cols['qty']]),
+                'desc':   as_str(row[cols['desc']]),
+                'start':  start, 'finish': finish,
+                'run_h':  run_h, 'clean_h': clean_h,
                 'status': status,
             })
     return records
 
 def extract_pkg(wb, sheets, cols):
     records = []
+    max_col = max(cols.values())
     for sname in sheets:
         if sname not in wb.sheetnames: continue
         ws = wb[sname]
         rows = list(ws.iter_rows(values_only=True))
         for row in rows[1:]:   # header is row 0
-            if len(row) <= max(cols.values()): continue
+            if len(row) <= max_col: continue
             wo = as_int(row[cols['wo']])
             if wo is None or wo < 1_000_000: continue
             start = as_dt(row[cols['start']])
             if start is None: continue
-            bulk = as_str(row[cols['bulk']])
-            rt = row[cols['run']]
-            finish = None
-            if isinstance(rt, (int, float)) and rt > 0:
-                finish = start + timedelta(hours=float(rt))
-            run_h = float(rt) if isinstance(rt, (int, float)) and 0 < rt < 500 else None
+            bulk  = as_str(row[cols['bulk']])
+            run_h = as_float(row[cols['run']])
+            run_h = run_h if run_h and 0 < run_h < 500 else None
+            finish = start + timedelta(hours=run_h) if run_h else None
             records.append({
                 'wo': wo, 'step': 'packaging', 'wc': sname,
                 'item': bulk, 'start': start, 'finish': finish,
@@ -137,7 +191,7 @@ def extract_pkg(wb, sheets, cols):
             })
     return records
 
-# ── main extraction ──────────────────────────────────────────────────────────
+# ── main extraction ───────────────────────────────────────────────────────────
 print("Loading workbooks…")
 wb_mfg = openpyxl.load_workbook(MFG_FILE, read_only=True, data_only=True)
 wb_pkg = openpyxl.load_workbook(PKG_FILE,  read_only=True, data_only=True)
