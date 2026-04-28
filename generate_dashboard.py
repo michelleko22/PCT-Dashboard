@@ -1,17 +1,32 @@
 """
 PCT Waiting Time Dashboard Generator
-Reads Manufacturing and Packaging Excel schedules, computes cycle time metrics,
-and generates a self-contained dashboard.html.
+Reads Manufacturing and Packaging Google Sheets schedules, computes cycle time
+metrics, and generates a self-contained dashboard.html.
+
+Setup:
+  1. Enable the Google Sheets API in your Google Cloud project.
+  2. Create a Service Account and download its JSON key as 'service_account.json'
+     in the same directory as this script.
+  3. Share both Google Sheets with the service account's email address
+     (Viewer permission is enough).
+  4. Set MFG_SHEET_ID and PKG_SHEET_ID below to your spreadsheet IDs
+     (the long string in the sheet URL between /d/ and /edit).
 """
-import openpyxl
+import gspread
+from google.oauth2.service_account import Credentials
 from datetime import datetime, timedelta
 from collections import defaultdict
 import json, os, re
 
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-MFG_FILE = os.path.join(BASE_DIR, 'data', 'PRODUCTION SCHED - Manufacturing.xlsm')
-PKG_FILE = os.path.join(BASE_DIR, 'data', 'PRODUCTION SCHED - Packaging.xlsm')
-OUT_FILE = os.path.join(BASE_DIR, 'dashboard.html')
+BASE_DIR   = os.path.dirname(os.path.abspath(__file__))
+CREDS_FILE = os.path.join(BASE_DIR, 'service_account.json')
+OUT_FILE   = os.path.join(BASE_DIR, 'dashboard.html')
+
+# ── Google Sheet IDs ──────────────────────────────────────────────────────────
+MFG_SHEET_ID = 'YOUR_MFG_SHEET_ID_HERE'   # Manufacturing schedule sheet ID
+PKG_SHEET_ID = 'YOUR_PKG_SHEET_ID_HERE'   # Packaging schedule sheet ID
+
+SCOPES = ['https://www.googleapis.com/auth/spreadsheets.readonly']
 
 PCT_TARGET_DAYS = 17
 
@@ -52,84 +67,135 @@ MFG_SHEETS = {
 }
 PKG_SHEETS = ['VFILLDU1','VFILLTRI','VFILLCR1','VFILLDU2','VFILLBL1']
 
+_DT_FMTS = (
+    '%d/%m/%Y %H:%M:%S', '%m/%d/%Y %H:%M:%S',
+    '%Y-%m-%d %H:%M:%S', '%Y-%m-%dT%H:%M:%S',
+    '%d/%m/%Y %H:%M',    '%m/%d/%Y %H:%M',
+    '%Y-%m-%d %H:%M',
+    '%d/%m/%Y',          '%m/%d/%Y',          '%Y-%m-%d',
+)
+
 def as_dt(v):
-    return v if isinstance(v, datetime) else None
+    if isinstance(v, datetime):
+        return v
+    s = str(v).strip() if v is not None else ''
+    if not s:
+        return None
+    # Google Sheets may return numeric serial strings
+    try:
+        n = float(s)
+        if 40000 < n < 60000:
+            return datetime(1899, 12, 30) + timedelta(days=n)
+    except ValueError:
+        pass
+    for fmt in _DT_FMTS:
+        try:
+            return datetime.strptime(s, fmt)
+        except ValueError:
+            pass
+    return None
 
 def as_int(v):
-    try: return int(v)
-    except: return None
+    s = str(v).strip() if v is not None else ''
+    if not s:
+        return None
+    try:
+        return int(float(s))
+    except (ValueError, TypeError):
+        return None
+
+def as_float(v):
+    s = str(v).strip() if v is not None else ''
+    if not s:
+        return None
+    try:
+        return float(s)
+    except (ValueError, TypeError):
+        return None
 
 def as_str(v):
     return str(v).strip() if v is not None else ''
 
-# ── load product types ───────────────────────────────────────────────────────
-def load_product_types(wb):
-    ws = wb['Products']
-    rows = list(ws.iter_rows(values_only=True))
-    # header at index 2, data from index 3
+# ── Google Sheets helpers ─────────────────────────────────────────────────────
+def open_sheet(sheet_id):
+    creds = Credentials.from_service_account_file(CREDS_FILE, scopes=SCOPES)
+    gc = gspread.authorize(creds)
+    return gc.open_by_key(sheet_id)
+
+def get_ws(sh, name):
+    try:
+        return sh.worksheet(name)
+    except gspread.WorksheetNotFound:
+        return None
+
+# ── load product types ────────────────────────────────────────────────────────
+def load_product_types(sh):
+    ws = get_ws(sh, 'Products')
+    if ws is None:
+        return {}
+    rows = ws.get_all_values()   # list of lists of strings
     types = {}
-    for r in rows[3:]:
-        if r[0] is None: continue
+    for r in rows[3:]:           # header at index 2, data from index 3
+        if not r or not r[0]: continue
         k = as_str(r[0])
-        t = as_str(r[2]) if r[2] else ''
+        t = as_str(r[2]) if len(r) > 2 else ''
         if k and t:
             types[k] = t
     return types
 
-# ── extract work center records ──────────────────────────────────────────────
-def extract_mfg(wb, step, sheets, cols):
+# ── extract work center records ───────────────────────────────────────────────
+def extract_mfg(sh, step, sheets, cols):
     records = []
+    max_col = max(cols.values())
     for sname in sheets:
-        if sname not in wb.sheetnames: continue
-        ws = wb[sname]
-        rows = list(ws.iter_rows(values_only=True))
-        for row in rows[8:]:   # first 8 rows are header/summary
-            if len(row) <= max(cols.values()): continue
+        ws = get_ws(sh, sname)
+        if ws is None: continue
+        rows = ws.get_all_values()
+        for row in rows[8:]:     # first 8 rows are header/summary
+            if len(row) <= max_col: continue
             wo = as_int(row[cols['wo']])
             if wo is None or wo < 1_000_000: continue
             start  = as_dt(row[cols['start']])
             finish = as_dt(row[cols['finish']])
-            status = as_str(row[cols['status']]).lower().strip() if 'status' in cols and cols['status'] < len(row) else ''
+            status = as_str(row[cols['status']]).lower() if 'status' in cols and cols['status'] < len(row) else ''
             is_queue = status in QUEUE_STATUSES
             if start is None and finish is None and not is_queue: continue
+            run_h   = as_float(row[cols['run']])   if 'run'   in cols else None
+            clean_h = as_float(row[cols['clean']]) if 'clean' in cols else None
+            # validate ranges
+            run_h   = run_h   if run_h   and 0 < run_h   < 500 else None
+            clean_h = clean_h if clean_h and 0 < clean_h < 100 else None
             # estimate start from run time if missing
-            if start is None and finish is not None and 'run' in cols:
-                rt = row[cols['run']]
-                if isinstance(rt, (int, float)) and rt > 0:
-                    start = finish - timedelta(hours=float(rt))
-            rt = row[cols['run']] if 'run' in cols and cols['run'] < len(row) else None
-            run_h = float(rt) if isinstance(rt, (int, float)) and 0 < rt < 500 else None
-            ct = row[cols['clean']] if 'clean' in cols and cols['clean'] < len(row) else None
-            clean_h = float(ct) if isinstance(ct, (int, float)) and 0 < ct < 100 else None
+            if start is None and finish is not None and run_h:
+                start = finish - timedelta(hours=run_h)
             records.append({
                 'wo': wo, 'step': step, 'wc': sname,
-                'item': as_str(row[cols['item']]),
-                'qty':  row[cols['qty']],
-                'desc': as_str(row[cols['desc']]),
-                'start': start, 'finish': finish,
-                'run_h': run_h, 'clean_h': clean_h,
-                'status': status,
+                'item':    as_str(row[cols['item']]),
+                'qty':     as_str(row[cols['qty']]),
+                'desc':    as_str(row[cols['desc']]),
+                'start':   start, 'finish': finish,
+                'run_h':   run_h, 'clean_h': clean_h,
+                'status':  status,
             })
     return records
 
-def extract_pkg(wb, sheets, cols):
+def extract_pkg(sh, sheets, cols):
     records = []
+    max_col = max(cols.values())
     for sname in sheets:
-        if sname not in wb.sheetnames: continue
-        ws = wb[sname]
-        rows = list(ws.iter_rows(values_only=True))
-        for row in rows[1:]:   # header is row 0
-            if len(row) <= max(cols.values()): continue
+        ws = get_ws(sh, sname)
+        if ws is None: continue
+        rows = ws.get_all_values()
+        for row in rows[1:]:     # header is row 0
+            if len(row) <= max_col: continue
             wo = as_int(row[cols['wo']])
             if wo is None or wo < 1_000_000: continue
             start = as_dt(row[cols['start']])
             if start is None: continue
-            bulk = as_str(row[cols['bulk']])
-            rt = row[cols['run']]
-            finish = None
-            if isinstance(rt, (int, float)) and rt > 0:
-                finish = start + timedelta(hours=float(rt))
-            run_h = float(rt) if isinstance(rt, (int, float)) and 0 < rt < 500 else None
+            bulk  = as_str(row[cols['bulk']])
+            run_h = as_float(row[cols['run']])
+            run_h = run_h if run_h and 0 < run_h < 500 else None
+            finish = start + timedelta(hours=run_h) if run_h else None
             records.append({
                 'wo': wo, 'step': 'packaging', 'wc': sname,
                 'item': bulk, 'start': start, 'finish': finish,
@@ -137,20 +203,20 @@ def extract_pkg(wb, sheets, cols):
             })
     return records
 
-# ── main extraction ──────────────────────────────────────────────────────────
-print("Loading workbooks…")
-wb_mfg = openpyxl.load_workbook(MFG_FILE, read_only=True, data_only=True)
-wb_pkg = openpyxl.load_workbook(PKG_FILE,  read_only=True, data_only=True)
+# ── main extraction ───────────────────────────────────────────────────────────
+print("Connecting to Google Sheets…")
+sh_mfg = open_sheet(MFG_SHEET_ID)
+sh_pkg = open_sheet(PKG_SHEET_ID)
 
-product_types = load_product_types(wb_mfg)
+product_types = load_product_types(sh_mfg)
 
 all_mfg = []
 for step, sheets in MFG_SHEETS.items():
-    recs = extract_mfg(wb_mfg, step, sheets, COLS[step])
+    recs = extract_mfg(sh_mfg, step, sheets, COLS[step])
     all_mfg.extend(recs)
     print(f"  {step}: {len(recs)} records")
 
-all_pkg = extract_pkg(wb_pkg, PKG_SHEETS, COLS['packaging'])
+all_pkg = extract_pkg(sh_pkg, PKG_SHEETS, COLS['packaging'])
 print(f"  packaging: {len(all_pkg)} records")
 
 # ── group manufacturing records by WO ────────────────────────────────────────
