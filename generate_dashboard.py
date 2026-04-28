@@ -1,14 +1,11 @@
 """
 PCT Waiting Time Dashboard Generator
-Reads Manufacturing and Packaging schedule files from your local OneDrive sync,
+Reads Manufacturing and Packaging schedule files from the network drive,
 computes cycle time metrics, and generates a self-contained dashboard.html.
 
-Setup (one-time):
-  1. In Teams, go to the Virginia Supply Chain > General > 05. Obeya folder
-  2. Click the three-dot menu > "Sync" (or open in SharePoint and click Sync)
-  3. The folder will appear in your OneDrive and stay up to date automatically
-
 Run:  python generate_dashboard.py
+
+Update MFG_FILE and PKG_FILE below when a new month's file is created.
 
 Requires:  pip install openpyxl
 """
@@ -21,22 +18,17 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 OUT_FILE = os.path.join(BASE_DIR, 'dashboard.html')
 
 # ── File paths ────────────────────────────────────────────────────────────────
-# These are the local OneDrive-synced paths. The folder name after "OneDrive - Sanofi/"
-# may differ slightly on your machine — check your OneDrive folder if the script
-# can't find the files.
-_OBEYA = os.path.expanduser(
-    '~/OneDrive - Sanofi/Virginia Supply Chain - General/05. Obeya'
-)
-MFG_FILE = os.path.join(_OBEYA, 'PRODUCTION SCHED - Manufacturing.xlsm')
-PKG_FILE = os.path.join(_OBEYA, 'PRODUCTION SCHED - Packaging.xlsm')
+# Update these each month when new files are created.
+MFG_FILE = r'\\S-ya-file\consumer\Departments\Manufacturing\Master Prod Schedule Manufacturing\Master File & Achived Months\2026\3. Marc 2026 PRODUCTION SCHED - Manufacturing.xlsm'
+PKG_FILE = r'\\S-ya-file\consumer\Departments\Manufacturing\Master Production Schedule Packaging\Master and Old Production Schedules\2026\3. PRODUCTION SCHED - March 2026.xlsm'
 
 
 def load_wb(path):
     if not os.path.exists(path):
         raise FileNotFoundError(
             f'File not found: {path}\n'
-            'Make sure the SharePoint folder is synced to OneDrive.\n'
-            'In Teams: go to the Obeya folder > three-dot menu > Sync.'
+            'Make sure you are connected to the Sanofi network (or VPN)\n'
+            'and update MFG_FILE / PKG_FILE at the top of this script.'
         )
     return openpyxl.load_workbook(path, read_only=True, data_only=True)
 
