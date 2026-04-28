@@ -22,9 +22,13 @@ PCT_TARGET_DAYS = 17
 COMPRESSION_STATUS_COL = 3
 QUEUE_STATUSES = {'r', 'wait-disp'}   # lowercased for comparison
 
+# COMPRESSION_CLEAN_COL: column index for clean/changeover hours in compression sheets
+# Adjust if clean time is in a different column (currently assumes col 1, adjacent to run at col 2)
+COMPRESSION_CLEAN_COL = 1
+
 COLS = {
     'dispensing':   {'wo':5,'item':6,'qty':7,'desc':8,'run':2,'start':11,'finish':12},
-    'compression':  {'wo':5,'item':6,'qty':7,'desc':8,'run':2,'start':12,'finish':13,'status':COMPRESSION_STATUS_COL},
+    'compression':  {'wo':5,'item':6,'qty':7,'desc':8,'run':2,'clean':COMPRESSION_CLEAN_COL,'start':12,'finish':13,'status':COMPRESSION_STATUS_COL},
     'coating':      {'wo':6,'item':7,'qty':8,'desc':9,'run':3,'start':13,'finish':14},
     'encap_hard':   {'wo':5,'item':6,'qty':7,'desc':8,'run':2,'start':12,'finish':13},
     'sg_gel_disp':  {'wo':6,'item':7,'qty':8,'desc':9,'run':3,'start':12,'finish':13},
@@ -95,13 +99,15 @@ def extract_mfg(wb, step, sheets, cols):
                     start = finish - timedelta(hours=float(rt))
             rt = row[cols['run']] if 'run' in cols and cols['run'] < len(row) else None
             run_h = float(rt) if isinstance(rt, (int, float)) and 0 < rt < 500 else None
+            ct = row[cols['clean']] if 'clean' in cols and cols['clean'] < len(row) else None
+            clean_h = float(ct) if isinstance(ct, (int, float)) and 0 < ct < 100 else None
             records.append({
                 'wo': wo, 'step': step, 'wc': sname,
                 'item': as_str(row[cols['item']]),
                 'qty':  row[cols['qty']],
                 'desc': as_str(row[cols['desc']]),
                 'start': start, 'finish': finish,
-                'run_h': run_h,
+                'run_h': run_h, 'clean_h': clean_h,
                 'status': status,
             })
     return records
@@ -630,8 +636,8 @@ for pt in ('TC','TU','CH','SG'):
     print(f"  ptype {pt}: {len(dates)} days, {len(entries)} WOs")
 
 # ── compression booth snapshot ───────────────────────────────────────────────
-SNAPSHOT_DT = datetime(2026, 4, 23, 7, 0)
-SNAPSHOT_STR = "23 Apr 2026 — 07:00 AM"
+SNAPSHOT_DT = datetime(2026, 4, 20, 0, 0)
+SNAPSHOT_STR = "20 Apr 2026 — 12:00 AM"
 
 COMP_BOOTHS = [
     ('TC1-Korsch 1', 'TC1', 'Korsch 1'),
@@ -691,14 +697,15 @@ for bname, short, machine in COMP_BOOTHS:
 
     def make_job(j):
         return {
-            'wo':   j['wo'],
-            'item': j['item'],
-            'desc': (j['desc'] or '').strip()[:40],
-            'qty':  str(j.get('qty') or ''),
-            'type': product_types.get(j['item'], ''),
-            'run_h': round(j['run_h'], 1) if j.get('run_h') else '',
-            'start': fmt_dt(j.get('start')),
-            'finish': fmt_dt(j.get('finish')),
+            'wo':      j['wo'],
+            'item':    j['item'],
+            'desc':    (j['desc'] or '').strip()[:40],
+            'qty':     str(j.get('qty') or ''),
+            'type':    product_types.get(j['item'], ''),
+            'run_h':   round(j['run_h'], 1) if j.get('run_h') else 0,
+            'clean_h': round(j['clean_h'], 2) if j.get('clean_h') else 0,
+            'start':   fmt_dt(j.get('start')),
+            'finish':  fmt_dt(j.get('finish')),
             'duration': dur_str(j.get('start'), j.get('finish')),
         }
 
@@ -707,12 +714,18 @@ for bname, short, machine in COMP_BOOTHS:
                   if j.get('status', '') in QUEUE_STATUSES
                   or (j.get('start') and j['start'] > SNAPSHOT_DT and not j.get('finish'))]
 
+    queue_total_h = round(sum(
+        (j.get('run_h') or 0) + (j.get('clean_h') or 0)
+        for j in queue_jobs if j.get('status', '') in QUEUE_STATUSES
+    ), 1)
+
     compression_booths.append({
         'name': bname, 'short': short, 'machine': machine,
         'status': status,
         'idle_h': idle_h,
         'current': make_job(current) if current else None,
         'queue_items': [make_job(j) for j in queue_jobs],
+        'queue_total_h': queue_total_h,
     })
     print(f"  booth {short}: {status}, {len(jobs)} jobs, idle {idle_h}h")
 
