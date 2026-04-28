@@ -2591,14 +2591,7 @@ function renderKPIs() {
       <div class="kpi-value" style="font-size:18px;line-height:1.3">${d.biggest_bottleneck}</div>
       <div class="kpi-sub">⚠️ ${d.biggest_bottleneck_days}d avg wait</div>
     </div>
-    <div class="kpi ${d.avg_pct > d.pct_target ? 'red' : 'green'}">
-      <div class="kpi-label">Target vs Actual</div>
-      <div class="kpi-value">${d.pct_target}d / ${d.avg_pct}d</div>
-      <div class="kpi-sub">${gapLabel}</div>
-      <div class="progress-bar">
-        <div class="progress-fill" style="width:${progress}%;background:var(--${d.avg_pct <= d.pct_target ? 'green-hi' : 'red'})"></div>
-      </div>
-    </div>`;
+    `;
 }
 
 // ── stacked bar chart ─────────────────────────────────────────────────────
