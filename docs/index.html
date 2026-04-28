@@ -318,6 +318,16 @@ footer {
   background: var(--accent1); border-color: var(--accent1);
   color: var(--text); font-weight: 600;
 }
+.step-filters { display: flex; gap: 6px; flex-wrap: wrap; padding: 10px 16px 4px; border-top: 1px solid var(--border); }
+.step-filter-btn {
+  padding: 3px 10px; border-radius: 20px; font-size: 10px; cursor: pointer;
+  border: 1px solid var(--step-color, #888);
+  background: transparent; color: var(--step-color, #888);
+  opacity: 0.45; transition: opacity .15s, background .15s, color .15s;
+}
+.step-filter-btn.active {
+  background: var(--step-color, #888); color: #111; opacity: 1;
+}
 @media (max-width: 900px) {
   .kpi-row { grid-template-columns: repeat(2, 1fr); }
   .main-grid { grid-template-columns: 1fr; }
@@ -395,6 +405,7 @@ footer {
           <button class="ptype-btn" onclick="switchPtype('SG',this)">Softgel</button>
         </div>
       </div>
+      <div id="step-filters" class="step-filters"></div>
       <div class="panel-body">
         <div class="chart-wrap" style="height:280px"><canvas id="dailyBar"></canvas></div>
         <div style="font-size:10px;color:var(--text2);margin-top:6px">
@@ -2594,6 +2605,12 @@ function renderDailyChart(ptype) {
   });
   if (dailyChart) { dailyChart.destroy(); dailyChart = null; }
   const ctx = document.getElementById('dailyBar').getContext('2d');
+  const filterWrap = document.getElementById('step-filters');
+  if (filterWrap) {
+    filterWrap.innerHTML = d.datasets.map((ds, i) =>
+      `<button class="step-filter-btn active" style="--step-color:${ds.backgroundColor}" onclick="toggleStep(this,${i})">${ds.label}</button>`
+    ).join('');
+  }
   dailyChart = new Chart(ctx, {
     type: 'bar',
     data: { labels, datasets: d.datasets },
@@ -2650,6 +2667,12 @@ function switchPtype(ptype, btn) {
   document.querySelectorAll('.ptype-btn').forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
   renderDailyChart(ptype);
+}
+
+function toggleStep(btn, datasetIndex) {
+  btn.classList.toggle('active');
+  dailyChart.setDatasetVisibility(datasetIndex, btn.classList.contains('active'));
+  dailyChart.update();
 }
 
 // ── bottleneck bars ───────────────────────────────────────────────────────
