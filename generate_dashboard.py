@@ -1,36 +1,44 @@
 """
 PCT Waiting Time Dashboard Generator
-Reads Manufacturing and Packaging schedule files (synced from Teams via OneDrive),
+Reads Manufacturing and Packaging schedule files from your local OneDrive sync,
 computes cycle time metrics, and generates a self-contained dashboard.html.
 
-The files are auto-synced from:
-  SharePoint: Virginia Supply Chain > Shared Documents > General > 05. Obeya
+Setup (one-time):
+  1. In Teams, go to the Virginia Supply Chain > General > 05. Obeya folder
+  2. Click the three-dot menu > "Sync" (or open in SharePoint and click Sync)
+  3. The folder will appear in your OneDrive and stay up to date automatically
 
-If the script can't find the files, check what OneDrive named the sync folder:
-  Open File Explorer → look inside your home folder for a "Sanofi" folder,
-  then find a subfolder starting with "Virginia Supply Chain".
-  Update _ONEDRIVE_FOLDER below to match the exact name.
+Run:  python generate_dashboard.py
+
+Requires:  pip install openpyxl
 """
+import io, json, os, re
 import openpyxl
 from datetime import datetime, timedelta
 from collections import defaultdict
-import json, os, re
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 OUT_FILE = os.path.join(BASE_DIR, 'dashboard.html')
 
 # ── File paths ────────────────────────────────────────────────────────────────
-# Derived from SharePoint site: VirginiaSupplyChain / Shared Documents / General / 05. Obeya
-# OneDrive syncs SharePoint sites to: ~\{Org}\{Site} - {Library}\{path}
-# Adjust _ONEDRIVE_FOLDER if OneDrive used a slightly different folder name.
-_ONEDRIVE_FOLDER = os.path.join(
-    os.path.expanduser('~'),
-    'Sanofi',
-    'Virginia Supply Chain - Shared Documents',
-    'General', '05. Obeya',
+# These are the local OneDrive-synced paths. The folder name after "OneDrive - Sanofi/"
+# may differ slightly on your machine — check your OneDrive folder if the script
+# can't find the files.
+_OBEYA = os.path.expanduser(
+    '~/OneDrive - Sanofi/Virginia Supply Chain - General/05. Obeya'
 )
-MFG_FILE = os.path.join(_ONEDRIVE_FOLDER, 'PRODUCTION SCHED - Manufacturing.xlsm')
-PKG_FILE  = os.path.join(_ONEDRIVE_FOLDER, 'PRODUCTION SCHED - Packaging.xlsm')
+MFG_FILE = os.path.join(_OBEYA, 'PRODUCTION SCHED - Manufacturing.xlsm')
+PKG_FILE = os.path.join(_OBEYA, 'PRODUCTION SCHED - Packaging.xlsm')
+
+
+def load_wb(path):
+    if not os.path.exists(path):
+        raise FileNotFoundError(
+            f'File not found: {path}\n'
+            'Make sure the SharePoint folder is synced to OneDrive.\n'
+            'In Teams: go to the Obeya folder > three-dot menu > Sync.'
+        )
+    return openpyxl.load_workbook(path, read_only=True, data_only=True)
 
 PCT_TARGET_DAYS = 17
 
@@ -193,8 +201,8 @@ def extract_pkg(wb, sheets, cols):
 
 # ── main extraction ───────────────────────────────────────────────────────────
 print("Loading workbooks…")
-wb_mfg = openpyxl.load_workbook(MFG_FILE, read_only=True, data_only=True)
-wb_pkg = openpyxl.load_workbook(PKG_FILE,  read_only=True, data_only=True)
+wb_mfg = load_wb(MFG_FILE)
+wb_pkg = load_wb(PKG_FILE)
 
 product_types = load_product_types(wb_mfg)
 
