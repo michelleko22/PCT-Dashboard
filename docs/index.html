@@ -2548,26 +2548,36 @@ function dotFor(val, low=1, high=3) {
 }
 
 // ── KPI cards ─────────────────────────────────────────────────────────────
+function avgMfgDays(ptype) {
+  const d = DATA.ptype_chart[ptype];
+  if (!d || !d.datasets || !d.labels.length) return null;
+  const mfgDs = d.datasets.filter(ds => ds.label !== 'Packaging' && ds.label !== 'Wait → Packaging');
+  const totals = d.labels.map((_, i) => mfgDs.reduce((s, ds) => s + (ds.data[i] || 0), 0));
+  const nonZero = totals.filter(v => v > 0);
+  if (!nonZero.length) return null;
+  return (nonZero.reduce((s, v) => s + v, 0) / nonZero.length / 24).toFixed(1);
+}
+
 function renderKPIs() {
   const d = DATA.kpi;
-  const pctColor = d.avg_pct <= 17 ? 'green' : d.avg_pct <= 20 ? 'amber' : 'red';
   const waitColor = d.wait_pct <= 20 ? 'green' : d.wait_pct <= 35 ? 'amber' : 'red';
   const progress = Math.min(100, Math.round(d.pct_target / d.avg_pct * 100));
   const gap = (d.avg_pct - d.pct_target).toFixed(1);
   const gapLabel = gap > 0 ? `${gap}d above target` : `${Math.abs(gap)}d below target`;
 
+  const ptypes = [['TC','Coated Tab'],['TU','Uncoated Tab'],['CH','Hard Cap'],['SG','Softgel']];
+  const mfgRows = ptypes.map(([pt, label]) => {
+    const v = avgMfgDays(pt);
+    return v ? `<span style="font-size:11px;color:var(--text2)">${label}: <b style="color:var(--text)">${v}d</b></span>` : '';
+  }).filter(Boolean).join('<span style="color:var(--border)"> │ </span>');
+  const allMfg = ptypes.map(([pt]) => parseFloat(avgMfgDays(pt))).filter(v => !isNaN(v));
+  const overallMfg = allMfg.length ? (allMfg.reduce((s,v)=>s+v,0)/allMfg.length).toFixed(1) : '—';
+
   document.getElementById('kpi-row').innerHTML = `
-    <div class="kpi ${pctColor}">
-      <div class="kpi-label">Total PCT Days</div>
-      <div class="kpi-value">${d.avg_pct}</div>
-      <div class="kpi-sub">
-        ${d.avg_pct > d.pct_target
-          ? '<span class="trend-up">↑</span> above target'
-          : '<span class="trend-down">↓</span> at or below target'}
-      </div>
-      <div class="progress-bar">
-        <div class="progress-fill" style="width:${progress}%;background:var(--${pctColor === 'green' ? 'green-hi' : pctColor})"></div>
-      </div>
+    <div class="kpi purple">
+      <div class="kpi-label">Avg Mfg Days</div>
+      <div class="kpi-value">${overallMfg}</div>
+      <div class="kpi-sub" style="flex-wrap:wrap;gap:6px">${mfgRows}</div>
     </div>
     <div class="kpi ${waitColor}">
       <div class="kpi-label">Waiting Time % of PCT</div>
