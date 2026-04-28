@@ -1,87 +1,44 @@
 """
 PCT Waiting Time Dashboard Generator
-Downloads Manufacturing and Packaging schedule files directly from SharePoint
-using browser-based Microsoft login (device code flow — supports MFA).
+Reads Manufacturing and Packaging schedule files from your local OneDrive sync,
+computes cycle time metrics, and generates a self-contained dashboard.html.
+
+Setup (one-time):
+  1. In Teams, go to the Virginia Supply Chain > General > 05. Obeya folder
+  2. Click the three-dot menu > "Sync" (or open in SharePoint and click Sync)
+  3. The folder will appear in your OneDrive and stay up to date automatically
 
 Run:  python generate_dashboard.py
-      A URL + code will be printed; open the URL in your browser, enter the
-      code, and sign in with your Sanofi account.  The script continues
-      automatically once authenticated.
 
-Requires:  pip install msal requests openpyxl
+Requires:  pip install openpyxl
 """
 import io, json, os, re
 import openpyxl
-import msal, requests
 from datetime import datetime, timedelta
 from collections import defaultdict
 
-BASE_DIR  = os.path.dirname(os.path.abspath(__file__))
-OUT_FILE  = os.path.join(BASE_DIR, 'dashboard.html')
-CACHE_FILE = os.path.join(BASE_DIR, '.msal_token_cache.json')
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+OUT_FILE = os.path.join(BASE_DIR, 'dashboard.html')
 
-# ── SharePoint / Azure AD config ──────────────────────────────────────────────
-# CLIENT_ID: register a multi-tenant Azure AD app (or ask your IT admin for one)
-# with permission "Sites.Read.All" (delegated) and redirect URI set to
-# "https://login.microsoftonline.com/common/oauth2/nativeclient".
-# Then paste its Application (client) ID below.
-CLIENT_ID  = 'YOUR_AZURE_APP_CLIENT_ID'   # ← replace with your app's client ID
-TENANT_ID  = 'common'                      # works for any Sanofi account
-SCOPES     = ['https://sanofi.sharepoint.com/.default']
-
-SHAREPOINT_SITE = 'https://sanofi.sharepoint.com/sites/VirginiaSupplyChain'
-_OBEYA          = '/sites/VirginiaSupplyChain/Shared%20Documents/General/05.%20Obeya'
-MFG_SP_PATH     = f'{_OBEYA}/PRODUCTION%20SCHED%20-%20Manufacturing.xlsm'
-PKG_SP_PATH     = f'{_OBEYA}/PRODUCTION%20SCHED%20-%20Packaging.xlsm'
+# ── File paths ────────────────────────────────────────────────────────────────
+# These are the local OneDrive-synced paths. The folder name after "OneDrive - Sanofi/"
+# may differ slightly on your machine — check your OneDrive folder if the script
+# can't find the files.
+_OBEYA = os.path.expanduser(
+    '~/OneDrive - Sanofi/Virginia Supply Chain - General/05. Obeya'
+)
+MFG_FILE = os.path.join(_OBEYA, 'PRODUCTION SCHED - Manufacturing.xlsm')
+PKG_FILE = os.path.join(_OBEYA, 'PRODUCTION SCHED - Packaging.xlsm')
 
 
-def _load_cache():
-    cache = msal.SerializableTokenCache()
-    if os.path.exists(CACHE_FILE):
-        with open(CACHE_FILE) as f:
-            cache.deserialize(f.read())
-    return cache
-
-
-def _save_cache(cache):
-    if cache.has_state_changed:
-        with open(CACHE_FILE, 'w') as f:
-            f.write(cache.serialize())
-
-
-def get_token():
-    """Return a valid Bearer token, re-using a cached one when possible."""
-    cache = _load_cache()
-    app = msal.PublicClientApplication(
-        CLIENT_ID,
-        authority=f'https://login.microsoftonline.com/{TENANT_ID}',
-        token_cache=cache,
-    )
-    accounts = app.get_accounts()
-    result = None
-    if accounts:
-        result = app.acquire_token_silent(SCOPES, account=accounts[0])
-    if not result:
-        flow = app.initiate_device_flow(scopes=SCOPES)
-        if 'user_code' not in flow:
-            raise RuntimeError(f'Device flow failed: {flow}')
-        print('\n' + flow['message'] + '\n')   # prints URL + code
-        result = app.acquire_token_by_device_flow(flow)
-    _save_cache(cache)
-    if 'access_token' not in result:
-        raise RuntimeError(f'Auth failed: {result.get("error_description", result)}')
-    return result['access_token']
-
-
-def download_wb(token, server_relative_url):
-    """Download a SharePoint file via REST API and return an openpyxl workbook."""
-    url = f'{SHAREPOINT_SITE}/_api/web/GetFileByServerRelativeUrl(\'{server_relative_url}\')/$value'
-    headers = {'Authorization': f'Bearer {token}', 'Accept': 'application/json;odata=verbose'}
-    resp = requests.get(url, headers=headers, timeout=120)
-    if resp.status_code != 200:
-        raise RuntimeError(f'Download failed ({resp.status_code}): {server_relative_url}\n{resp.text[:400]}')
-    buf = io.BytesIO(resp.content)
-    return openpyxl.load_workbook(buf, read_only=True, data_only=True)
+def load_wb(path):
+    if not os.path.exists(path):
+        raise FileNotFoundError(
+            f'File not found: {path}\n'
+            'Make sure the SharePoint folder is synced to OneDrive.\n'
+            'In Teams: go to the Obeya folder > three-dot menu > Sync.'
+        )
+    return openpyxl.load_workbook(path, read_only=True, data_only=True)
 
 PCT_TARGET_DAYS = 17
 
@@ -243,17 +200,9 @@ def extract_pkg(wb, sheets, cols):
     return records
 
 # ── main extraction ───────────────────────────────────────────────────────────
-print("Authenticating with Microsoft…")
-_token = get_token()
-
-# URL-decode paths for the REST API (it expects the raw unencoded path)
-import urllib.parse
-_MFG_PATH = urllib.parse.unquote(MFG_SP_PATH)
-_PKG_PATH = urllib.parse.unquote(PKG_SP_PATH)
-
-print("Downloading workbooks…")
-wb_mfg = download_wb(_token, _MFG_PATH)
-wb_pkg = download_wb(_token, _PKG_PATH)
+print("Loading workbooks…")
+wb_mfg = load_wb(MFG_FILE)
+wb_pkg = load_wb(PKG_FILE)
 
 product_types = load_product_types(wb_mfg)
 
