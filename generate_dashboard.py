@@ -315,17 +315,36 @@ for r in all_mfg:
     if r['finish']: wo_timeline[r['wo']]['finishes'].append(r['finish'])
     wo_timeline[r['wo']]['steps'].append(r['step'])
 
+# ── avg mfg days per type: dispensing start → last mfg step finish (excl. packaging) ──
+mfg_days_by_type = defaultdict(list)
+disp_starts_by_item = defaultdict(list)
+for wo2, steps2 in wo_steps.items():
+    for s in steps2:
+        if s['item'] and s['step'] in ('dispensing', 'sg_gel_disp', 'sg_med_disp') and s['start']:
+            disp_starts_by_item[s['item']].append(s['start'])
+
+for item, mfg_list in mfg_last_by_item.items():
+    starts = disp_starts_by_item.get(item, [])
+    if not starts: continue
+    earliest_start = min(starts)
+    for m in mfg_list:
+        if not m['finish']: continue
+        days = (m['finish'] - earliest_start).total_seconds() / 86400
+        if 0 < days <= 60:
+            ptype = m.get('type', '')
+            if ptype in ('TC', 'TU', 'CH', 'SG'):
+                mfg_days_by_type[ptype].append(days)
+
+avg_mfg_by_type = {pt: round(mean(v), 1) for pt, v in mfg_days_by_type.items() if v}
+all_mfg_vals = [v for vals in mfg_days_by_type.values() for v in vals]
+avg_mfg_days = round(mean(all_mfg_vals), 1) if all_mfg_vals else None
+
+# keep avg_pct for target vs actual card
 pct_values = []
 for pr in all_pkg:
     wo = pr['wo']
     item = pr['item']
-    mfg_finishes = [m['finish'] for m in mfg_last_by_item.get(item, []) if m['finish']]
-    mfg_starts   = []
-    # find dispensing starts for this item
-    for wo2, steps2 in wo_steps.items():
-        for s in steps2:
-            if s['item'] == item and s['step'] in ('dispensing','sg_gel_disp','sg_med_disp') and s['start']:
-                mfg_starts.append(s['start'])
+    mfg_starts = disp_starts_by_item.get(item, [])
     if mfg_starts and pr['finish']:
         pct_days = (pr['finish'] - min(mfg_starts)).total_seconds() / 86400
         if 0 < pct_days <= 120:
