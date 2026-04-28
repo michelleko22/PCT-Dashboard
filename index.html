@@ -2560,7 +2560,6 @@ function avgMfgDays(ptype) {
 
 function renderKPIs() {
   const d = DATA.kpi;
-  const waitColor = d.wait_pct <= 20 ? 'green' : d.wait_pct <= 35 ? 'amber' : 'red';
   const progress = Math.min(100, Math.round(d.pct_target / d.avg_pct * 100));
   const gap = (d.avg_pct - d.pct_target).toFixed(1);
   const gapLabel = gap > 0 ? `${gap}d above target` : `${Math.abs(gap)}d below target`;
@@ -2573,6 +2572,9 @@ function renderKPIs() {
   const allMfg = ptypes.map(([pt]) => parseFloat(avgMfgDays(pt))).filter(v => !isNaN(v));
   const overallMfg = allMfg.length ? (allMfg.reduce((s,v)=>s+v,0)/allMfg.length).toFixed(1) : '—';
 
+  const waitPctOfMfg = overallMfg !== '—' ? Math.min(100, (d.avg_wait_days / parseFloat(overallMfg) * 100)).toFixed(1) : d.wait_pct;
+  const waitColor = waitPctOfMfg <= 20 ? 'green' : waitPctOfMfg <= 35 ? 'amber' : 'red';
+
   document.getElementById('kpi-row').innerHTML = `
     <div class="kpi purple">
       <div class="kpi-label">Avg Mfg Days</div>
@@ -2580,23 +2582,16 @@ function renderKPIs() {
       <div class="kpi-sub" style="flex-wrap:wrap;gap:6px">${mfgRows}</div>
     </div>
     <div class="kpi ${waitColor}">
-      <div class="kpi-label">Waiting Time % of PCT</div>
-      <div class="kpi-value">${d.wait_pct}%</div>
-      <div class="kpi-sub">${d.avg_wait_days}d of your PCT is waiting time</div>
+      <div class="kpi-label">Waiting Time % of Mfg Days</div>
+      <div class="kpi-value">${waitPctOfMfg}%</div>
+      <div class="kpi-sub">${d.avg_wait_days}d of your mfg time is waiting</div>
     </div>
     <div class="kpi amber">
       <div class="kpi-label">Biggest Bottleneck</div>
       <div class="kpi-value" style="font-size:18px;line-height:1.3">${d.biggest_bottleneck}</div>
       <div class="kpi-sub">⚠️ ${d.biggest_bottleneck_days}d avg wait</div>
     </div>
-    <div class="kpi ${d.avg_pct > d.pct_target ? 'red' : 'green'}">
-      <div class="kpi-label">Target vs Actual</div>
-      <div class="kpi-value">${d.pct_target}d / ${d.avg_pct}d</div>
-      <div class="kpi-sub">${gapLabel}</div>
-      <div class="progress-bar">
-        <div class="progress-fill" style="width:${progress}%;background:var(--${d.avg_pct <= d.pct_target ? 'green-hi' : 'red'})"></div>
-      </div>
-    </div>`;
+    `;
 }
 
 // ── stacked bar chart ─────────────────────────────────────────────────────
