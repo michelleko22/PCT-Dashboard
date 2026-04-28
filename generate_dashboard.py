@@ -690,8 +690,8 @@ for pt in ('TC','TU','CH','SG'):
     print(f"  ptype {pt}: {len(dates)} days, {len(entries)} WOs")
 
 # ── compression booth snapshot ───────────────────────────────────────────────
-SNAPSHOT_DT = datetime(2026, 4, 20, 0, 0)
-SNAPSHOT_STR = "20 Apr 2026 — 12:00 AM"
+SNAPSHOT_DT  = datetime.now()
+SNAPSHOT_STR = SNAPSHOT_DT.strftime('%d %b %Y — %I:%M %p')
 
 COMP_BOOTHS = [
     ('TC1-Korsch 1', 'TC1', 'Korsch 1'),
