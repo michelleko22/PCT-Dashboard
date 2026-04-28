@@ -1,32 +1,24 @@
 """
 PCT Waiting Time Dashboard Generator
-Reads Manufacturing and Packaging Google Sheets schedules, computes cycle time
-metrics, and generates a self-contained dashboard.html.
+Reads Manufacturing and Packaging schedule files (synced from Teams via OneDrive),
+computes cycle time metrics, and generates a self-contained dashboard.html.
 
 Setup:
-  1. Enable the Google Sheets API in your Google Cloud project.
-  2. Create a Service Account and download its JSON key as 'service_account.json'
-     in the same directory as this script.
-  3. Share both Google Sheets with the service account's email address
-     (Viewer permission is enough).
-  4. Set MFG_SHEET_ID and PKG_SHEET_ID below to your spreadsheet IDs
-     (the long string in the sheet URL between /d/ and /edit).
+  Set MFG_FILE and PKG_FILE below to the local OneDrive paths for each file.
+  In File Explorer, right-click the file → "Copy as path" to get the exact path.
+  The files stay up to date automatically as OneDrive syncs changes from Teams.
 """
-import gspread
-from google.oauth2.service_account import Credentials
+import openpyxl
 from datetime import datetime, timedelta
 from collections import defaultdict
 import json, os, re
 
-BASE_DIR   = os.path.dirname(os.path.abspath(__file__))
-CREDS_FILE = os.path.join(BASE_DIR, 'service_account.json')
-OUT_FILE   = os.path.join(BASE_DIR, 'dashboard.html')
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+OUT_FILE = os.path.join(BASE_DIR, 'dashboard.html')
 
-# ── Google Sheet IDs ──────────────────────────────────────────────────────────
-MFG_SHEET_ID = 'YOUR_MFG_SHEET_ID_HERE'   # Manufacturing schedule sheet ID
-PKG_SHEET_ID = 'YOUR_PKG_SHEET_ID_HERE'   # Packaging schedule sheet ID
-
-SCOPES = ['https://www.googleapis.com/auth/spreadsheets.readonly']
+# ── File paths (update to your local OneDrive sync paths) ────────────────────
+MFG_FILE = r'C:\Users\YourName\OneDrive - OrgName\TeamName - General\PRODUCTION SCHED - Manufacturing.xlsm'
+PKG_FILE  = r'C:\Users\YourName\OneDrive - OrgName\TeamName - General\PRODUCTION SCHED - Packaging.xlsm'
 
 PCT_TARGET_DAYS = 17
 
@@ -116,42 +108,28 @@ def as_float(v):
 def as_str(v):
     return str(v).strip() if v is not None else ''
 
-# ── Google Sheets helpers ─────────────────────────────────────────────────────
-def open_sheet(sheet_id):
-    creds = Credentials.from_service_account_file(CREDS_FILE, scopes=SCOPES)
-    gc = gspread.authorize(creds)
-    return gc.open_by_key(sheet_id)
-
-def get_ws(sh, name):
-    try:
-        return sh.worksheet(name)
-    except gspread.WorksheetNotFound:
-        return None
-
 # ── load product types ────────────────────────────────────────────────────────
-def load_product_types(sh):
-    ws = get_ws(sh, 'Products')
-    if ws is None:
-        return {}
-    rows = ws.get_all_values()   # list of lists of strings
+def load_product_types(wb):
+    ws = wb['Products']
+    rows = list(ws.iter_rows(values_only=True))
     types = {}
-    for r in rows[3:]:           # header at index 2, data from index 3
-        if not r or not r[0]: continue
+    for r in rows[3:]:   # header at index 2, data from index 3
+        if r[0] is None: continue
         k = as_str(r[0])
-        t = as_str(r[2]) if len(r) > 2 else ''
+        t = as_str(r[2]) if len(r) > 2 and r[2] else ''
         if k and t:
             types[k] = t
     return types
 
 # ── extract work center records ───────────────────────────────────────────────
-def extract_mfg(sh, step, sheets, cols):
+def extract_mfg(wb, step, sheets, cols):
     records = []
     max_col = max(cols.values())
     for sname in sheets:
-        ws = get_ws(sh, sname)
-        if ws is None: continue
-        rows = ws.get_all_values()
-        for row in rows[8:]:     # first 8 rows are header/summary
+        if sname not in wb.sheetnames: continue
+        ws = wb[sname]
+        rows = list(ws.iter_rows(values_only=True))
+        for row in rows[8:]:   # first 8 rows are header/summary
             if len(row) <= max_col: continue
             wo = as_int(row[cols['wo']])
             if wo is None or wo < 1_000_000: continue
@@ -162,31 +140,29 @@ def extract_mfg(sh, step, sheets, cols):
             if start is None and finish is None and not is_queue: continue
             run_h   = as_float(row[cols['run']])   if 'run'   in cols else None
             clean_h = as_float(row[cols['clean']]) if 'clean' in cols else None
-            # validate ranges
             run_h   = run_h   if run_h   and 0 < run_h   < 500 else None
             clean_h = clean_h if clean_h and 0 < clean_h < 100 else None
-            # estimate start from run time if missing
             if start is None and finish is not None and run_h:
                 start = finish - timedelta(hours=run_h)
             records.append({
                 'wo': wo, 'step': step, 'wc': sname,
-                'item':    as_str(row[cols['item']]),
-                'qty':     as_str(row[cols['qty']]),
-                'desc':    as_str(row[cols['desc']]),
-                'start':   start, 'finish': finish,
-                'run_h':   run_h, 'clean_h': clean_h,
-                'status':  status,
+                'item':   as_str(row[cols['item']]),
+                'qty':    as_str(row[cols['qty']]),
+                'desc':   as_str(row[cols['desc']]),
+                'start':  start, 'finish': finish,
+                'run_h':  run_h, 'clean_h': clean_h,
+                'status': status,
             })
     return records
 
-def extract_pkg(sh, sheets, cols):
+def extract_pkg(wb, sheets, cols):
     records = []
     max_col = max(cols.values())
     for sname in sheets:
-        ws = get_ws(sh, sname)
-        if ws is None: continue
-        rows = ws.get_all_values()
-        for row in rows[1:]:     # header is row 0
+        if sname not in wb.sheetnames: continue
+        ws = wb[sname]
+        rows = list(ws.iter_rows(values_only=True))
+        for row in rows[1:]:   # header is row 0
             if len(row) <= max_col: continue
             wo = as_int(row[cols['wo']])
             if wo is None or wo < 1_000_000: continue
@@ -204,19 +180,19 @@ def extract_pkg(sh, sheets, cols):
     return records
 
 # ── main extraction ───────────────────────────────────────────────────────────
-print("Connecting to Google Sheets…")
-sh_mfg = open_sheet(MFG_SHEET_ID)
-sh_pkg = open_sheet(PKG_SHEET_ID)
+print("Loading workbooks…")
+wb_mfg = openpyxl.load_workbook(MFG_FILE, read_only=True, data_only=True)
+wb_pkg = openpyxl.load_workbook(PKG_FILE,  read_only=True, data_only=True)
 
-product_types = load_product_types(sh_mfg)
+product_types = load_product_types(wb_mfg)
 
 all_mfg = []
 for step, sheets in MFG_SHEETS.items():
-    recs = extract_mfg(sh_mfg, step, sheets, COLS[step])
+    recs = extract_mfg(wb_mfg, step, sheets, COLS[step])
     all_mfg.extend(recs)
     print(f"  {step}: {len(recs)} records")
 
-all_pkg = extract_pkg(sh_pkg, PKG_SHEETS, COLS['packaging'])
+all_pkg = extract_pkg(wb_pkg, PKG_SHEETS, COLS['packaging'])
 print(f"  packaging: {len(all_pkg)} records")
 
 # ── group manufacturing records by WO ────────────────────────────────────────
