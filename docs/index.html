@@ -2747,9 +2747,7 @@ function renderWCDetail() {
   document.getElementById('wc-comp-wait').textContent = avgCompWait;
   document.getElementById('wc-gap').textContent = (d.avg_pct - d.pct_target).toFixed(1) + 'd';
 
-  document.getElementById('snapshot-time').textContent = new Date().toLocaleString('en-AU',{
-    day:'2-digit', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit'
-  });
+  document.getElementById('snapshot-time').textContent = '20 Apr 2026 — 12:00 AM';
 
   // Booth grid
   document.getElementById('booth-grid').innerHTML = DATA.compression_booths.map(b => {
@@ -2795,8 +2793,11 @@ function renderWCDetail() {
             </div>` : '<p style="color:var(--text2);font-size:12px;margin:0">No current job</p>'}
         </div>
         <div style="border-top:1px solid var(--border)">
-          <div style="padding:5px 14px 3px;font-size:10px;color:var(--text2);text-transform:uppercase;letter-spacing:.6px">
-            Waiting Queue${queue.length ? ' (' + queue.length + ')' : ''}
+          <div style="padding:5px 14px 3px;display:flex;justify-content:space-between;align-items:baseline">
+            <span style="font-size:10px;color:var(--text2);text-transform:uppercase;letter-spacing:.6px">
+              Waiting Queue${queue.length ? ' (' + queue.length + ')' : ''}
+            </span>
+            ${(b.queue_total_h > 0) ? `<span style="font-size:11px;color:var(--amber);font-weight:700">${b.queue_total_h}h total</span>` : ''}
           </div>
           ${queueHTML}
         </div>
