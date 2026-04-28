@@ -2747,7 +2747,7 @@ function renderWCDetail() {
   document.getElementById('wc-comp-wait').textContent = avgCompWait;
   document.getElementById('wc-gap').textContent = (d.avg_pct - d.pct_target).toFixed(1) + 'd';
 
-  document.getElementById('snapshot-time').textContent = '20 Apr 2026 — 12:00 AM';
+  document.getElementById('snapshot-time').textContent = DATA.snapshot_str;
 
   // Booth grid
   document.getElementById('booth-grid').innerHTML = DATA.compression_booths.map(b => {
