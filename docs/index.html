@@ -2758,6 +2758,15 @@ function renderWCDetail() {
     const badge = isRun
       ? `<span class="booth-run-badge">RUNNING</span>`
       : `<span class="booth-idle-badge">IDLE${b.idle_h != null ? ' ' + b.idle_h + 'h' : ''}</span>`;
+    const queue = Array.isArray(b.queue_items) ? b.queue_items : [];
+    const queueHTML = queue.length
+      ? queue.map(q => `
+          <div style="display:flex;justify-content:space-between;align-items:baseline;padding:4px 14px;border-top:1px solid var(--border)">
+            <span style="font-size:11px;font-weight:700;color:var(--text)">WO ${q.wo}</span>
+            <span style="font-size:10px;color:var(--text2);margin-left:8px;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:right">${q.desc || q.item || ''}</span>
+            ${q.qty ? `<span style="font-size:10px;color:var(--text2);margin-left:8px">×${q.qty}</span>` : ''}
+          </div>`).join('')
+      : `<div style="padding:6px 14px 8px;font-size:11px;color:var(--text2)">No orders in queue</div>`;
     return `
       <div class="booth-card">
         <div class="booth-card-header">
@@ -2784,6 +2793,12 @@ function renderWCDetail() {
               <span>Qty: <strong>${cur.qty || '—'}</strong></span>
               <span>Run: <strong>${cur.duration || '—'}</strong></span>
             </div>` : '<p style="color:var(--text2);font-size:12px;margin:0">No current job</p>'}
+        </div>
+        <div style="border-top:1px solid var(--border)">
+          <div style="padding:5px 14px 3px;font-size:10px;color:var(--text2);text-transform:uppercase;letter-spacing:.6px">
+            Waiting Queue${queue.length ? ' (' + queue.length + ')' : ''}
+          </div>
+          ${queueHTML}
         </div>
       </div>`;
   }).join('');
