@@ -2655,6 +2655,7 @@ function switchPtype(ptype, btn) {
 // ── bottleneck bars ───────────────────────────────────────────────────────
 function renderBottlenecks(data) {
   const wrap = document.getElementById('bottleneck-bars');
+  if (!wrap) return;
   if (!data || data.length === 0) { wrap.innerHTML = '<p style="color:var(--text2)">No data</p>'; return; }
   const maxVal = Math.max(...data.map(r => r.avg_wait_d));
   wrap.innerHTML = data.slice(0,8).map(r => {
