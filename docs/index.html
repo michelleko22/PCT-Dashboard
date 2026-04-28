@@ -409,7 +409,7 @@ footer {
       <div class="panel-body">
         <div class="chart-wrap" style="height:280px"><canvas id="dailyBar"></canvas></div>
         <div style="font-size:10px;color:var(--text2);margin-top:6px">
-          ■ Solid = active process time &nbsp;│&nbsp; ░ Light = waiting time between steps &nbsp;│&nbsp; Y-axis in hours
+          ■ Solid = active process time &nbsp;│&nbsp; ░ Light = waiting time between steps
         </div>
       </div>
     </div>
@@ -2625,7 +2625,7 @@ function renderDailyChart(ptype) {
         legend: {
           position: 'bottom',
           labels: {
-            color: '#b8ccb5', boxWidth: 14, font: { size: 11 },
+            color: '#ffffff', boxWidth: 14, font: { size: 11 },
             generateLabels: chart => chart.data.datasets.map((ds, i) => ({
               text: ds.label,
               fillStyle: ds.backgroundColor,
