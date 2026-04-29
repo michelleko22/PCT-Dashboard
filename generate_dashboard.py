@@ -37,7 +37,8 @@ PCT_TARGET_DAYS = 17
 # (e.g. 'r' = released/ready, 'Wait-Disp' = waiting for dispensing)
 # Verify against the actual Excel layout and adjust if needed.
 COMPRESSION_STATUS_COL = 3
-QUEUE_STATUSES = {'r', 'wait-disp'}   # lowercased for comparison
+QUEUE_STATUSES = {'r', 'w'}            # lowercased: r=released/ready, w=waiting
+RUNNING_STATUSES = {'ip'}              # ip=in progress (currently running)
 
 # COMPRESSION_CLEAN_COL: column index for clean/changeover hours in compression sheets
 # Adjust if clean time is in a different column (currently assumes col 1, adjacent to run at col 2)
@@ -712,9 +713,13 @@ def dur_str(s, f):
     return '—'
 
 # Build per-booth WO list from mfg records
+# Include jobs with dates OR with a recognised status (r/w/ip) even if undated
 booth_wo_map = {b[0]: [] for b in COMP_BOOTHS}
 for r in all_mfg:
-    if r['wc'] in booth_wo_map and (r['start'] or r['finish']):
+    if r['wc'] in booth_wo_map and (
+        r['start'] or r['finish']
+        or r.get('status', '').lower() in QUEUE_STATUSES | RUNNING_STATUSES
+    ):
         booth_wo_map[r['wc']].append(r)
 for v in booth_wo_map.values():
     v.sort(key=lambda x: x['start'] or x['finish'] or datetime.min)
@@ -724,19 +729,25 @@ for bname, short, machine in COMP_BOOTHS:
     jobs = booth_wo_map[bname]
 
     running = last_done = next_sched = None
+    # Explicit IP status takes priority over time-based detection
     for j in jobs:
-        s, f = j.get('start'), j.get('finish')
-        if s and f:
-            if s <= SNAPSHOT_DT < f:
+        if j.get('status', '').lower() in RUNNING_STATUSES:
+            running = j
+            break
+    if not running:
+        for j in jobs:
+            s, f = j.get('start'), j.get('finish')
+            if s and f:
+                if s <= SNAPSHOT_DT < f:
+                    running = j; break
+                elif f <= SNAPSHOT_DT:
+                    if not last_done or f > last_done['finish']:
+                        last_done = j
+            elif s and not f and s <= SNAPSHOT_DT:
                 running = j; break
-            elif f <= SNAPSHOT_DT:
-                if not last_done or f > last_done['finish']:
-                    last_done = j
-        elif s and not f and s <= SNAPSHOT_DT:
-            running = j; break
-        elif s and s > SNAPSHOT_DT:
-            if not next_sched or s < next_sched['start']:
-                next_sched = j
+            elif s and s > SNAPSHOT_DT:
+                if not next_sched or s < next_sched['start']:
+                    next_sched = j
 
     if running:   status, current = 'RUN',   running
     elif last_done: status, current = 'IDLE',  last_done
@@ -759,16 +770,16 @@ for bname, short, machine in COMP_BOOTHS:
             'start':   fmt_dt(j.get('start')),
             'finish':  fmt_dt(j.get('finish')),
             'duration': dur_str(j.get('start'), j.get('finish')),
+            'status':  j.get('status', ''),
         }
 
-    # waiting queue: status 'r' or 'Wait-Disp', or future-scheduled with no finish yet
+    # waiting queue: orders with status 'r' (released) or 'w' (waiting)
     queue_jobs = [j for j in jobs
-                  if j.get('status', '') in QUEUE_STATUSES
-                  or (j.get('start') and j['start'] > SNAPSHOT_DT and not j.get('finish'))]
+                  if j.get('status', '').lower() in QUEUE_STATUSES]
 
     queue_total_h = round(sum(
         (j.get('run_h') or 0) + (j.get('clean_h') or 0)
-        for j in queue_jobs if j.get('status', '') in QUEUE_STATUSES
+        for j in queue_jobs
     ), 1)
 
     compression_booths.append({
