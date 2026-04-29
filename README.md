@@ -10,7 +10,7 @@ Deployed via GitHub Pages → [michelleko22.github.io/PCT-Dashboard](https://mic
 
 ## What it shows
 
-- **PCT Overview** — KPI cards, daily batch cycle time breakdown by product type (Coated Tablet / Uncoated Tablet / Hard Capsule / Softgel), top bottlenecks, and batch-level detail table
+- **PCT Overview** — KPI cards, daily batch cycle time breakdown by product type (Coated Tablet / Uncoated Tablet / Two Piece / Softgel), top bottlenecks, and batch-level detail table
 - **Work Centre Detail** — Compression booth status snapshot (8 booths), idle time, current and recent jobs
 
 ## Regenerating the dashboard

@@ -374,7 +374,7 @@ footer {
       <option value="">All Types</option>
       <option>TC — Coated Tablet</option>
       <option>TU — Uncoated Tablet</option>
-      <option>CH — Hard Capsule</option>
+      <option>CH — Two Piece</option>
       <option>SG — Softgel</option>
     </select>
   </div>
@@ -414,7 +414,7 @@ footer {
         <div class="ptype-tabs" id="ptype-tabs">
           <button class="ptype-btn active" onclick="switchPtype('TC',this)">Coated Tablet</button>
           <button class="ptype-btn" onclick="switchPtype('TU',this)">Uncoated Tablet</button>
-          <button class="ptype-btn" onclick="switchPtype('CH',this)">Hard Capsule</button>
+          <button class="ptype-btn" onclick="switchPtype('CH',this)">Two Piece</button>
           <button class="ptype-btn" onclick="switchPtype('SG',this)">Softgel</button>
         </div>
       </div>
@@ -2677,7 +2677,7 @@ function renderKPIs() {
   const gap = (d.avg_pct - d.pct_target).toFixed(1);
   const gapLabel = gap > 0 ? `${gap}d above target` : `${Math.abs(gap)}d below target`;
 
-  const ptypes = [['TC','Coated Tab'],['TU','Uncoated Tab'],['CH','Hard Cap'],['SG','Softgel']];
+  const ptypes = [['TC','Coated Tab'],['TU','Uncoated Tab'],['CH','Two Piece'],['SG','Softgel']];
   const mfgRows = ptypes.map(([pt, label]) => {
     const v = avgMfgDays(pt);
     return v ? `<span style="font-size:11px;color:var(--text2)">${label}: <b style="color:var(--text)">${v}d</b></span>` : '';
