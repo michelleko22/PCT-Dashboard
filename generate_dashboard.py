@@ -929,6 +929,83 @@ for bname, short, machine in DISPENSING_BOOTHS:
     })
     print(f"  dispenser {short}: {status}, {len(jobs)} jobs, idle {idle_h}h")
 
+# ── packaging lines snapshot (from packaging schedule workbook) ────────────────
+PACKAGING_STATIONS = [
+    ('VFILLDU1', 'DU1', 'VFILL DU1'),
+    ('VFILLTRI', 'TRI', 'VFILL TRI'),
+    ('VFILLCR1', 'CR1', 'VFILL CR1'),
+    ('VFILLDU2', 'DU2', 'VFILL DU2'),
+    ('VFILLBL1', 'BL1', 'VFILL BL1'),
+]
+
+packaging_station_map = {s[0]: [] for s in PACKAGING_STATIONS}
+for r in all_pkg:
+    if r['wc'] in packaging_station_map:
+        packaging_station_map[r['wc']].append(r)
+for v in packaging_station_map.values():
+    v.sort(key=lambda x: x['start'] or datetime.min)
+
+packaging_booths = []
+for sheet_name, short, machine in PACKAGING_STATIONS:
+    jobs = packaging_station_map[sheet_name]
+
+    running = last_done = next_sched = None
+    for j in jobs:
+        s, f = j.get('start'), j.get('finish')
+        if s and f:
+            if s <= SNAPSHOT_DT < f:
+                running = j
+                break
+            elif f <= SNAPSHOT_DT:
+                if not last_done or f > last_done['finish']:
+                    last_done = j
+        elif s and not f and s <= SNAPSHOT_DT:
+            running = j
+            break
+        elif s and s > SNAPSHOT_DT:
+            if not next_sched or s < next_sched['start']:
+                next_sched = j
+
+    if running:
+        status_pk, current_pk = 'RUN', running
+    elif last_done:
+        status_pk, current_pk = 'IDLE', last_done
+    elif next_sched:
+        status_pk, current_pk = 'SCHED', next_sched
+    else:
+        status_pk, current_pk = 'IDLE', None
+
+    idle_h = None
+    if status_pk == 'IDLE' and current_pk and current_pk.get('finish'):
+        idle_h = round((SNAPSHOT_DT - current_pk['finish']).total_seconds() / 3600, 1)
+
+    def make_pkg_job(j):
+        it = str(j.get('item') or '')
+        return {
+            'wo':       j['wo'],
+            'item':     it,
+            'desc':     '',
+            'qty':      '',
+            'type':     product_types.get(it, ''),
+            'run_h':    round(j['run_h'], 1) if j.get('run_h') else 0,
+            'start':    fmt_dt(j.get('start')),
+            'finish':   fmt_dt(j.get('finish')),
+            'duration': dur_str(j.get('start'), j.get('finish')),
+        }
+
+    queue_jobs = [j for j in jobs if j.get('start') and j['start'] > SNAPSHOT_DT]
+    queue_total_h = round(sum((j.get('run_h') or 0) for j in queue_jobs), 1)
+
+    packaging_booths.append({
+        'name': sheet_name, 'short': short, 'machine': machine,
+        'status': status_pk,
+        'idle_h': idle_h,
+        'current': make_pkg_job(current_pk) if current_pk else None,
+        'queue_items': [make_pkg_job(j) for j in queue_jobs],
+        'queue_total_h': queue_total_h,
+    })
+    print(f"  packaging {short}: {status_pk}, {len(jobs)} jobs, idle {idle_h}h")
+
 dashboard_data = {
     'kpi': {
         'avg_pct': avg_pct,
@@ -950,6 +1027,7 @@ dashboard_data = {
     'compression_booths': compression_booths,
     'coating_booths': coating_booths,
     'dispensing_booths': dispensing_booths,
+    'packaging_booths': packaging_booths,
     'snapshot_str': SNAPSHOT_STR,
 }
 
