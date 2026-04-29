@@ -792,7 +792,73 @@ for bname, short, machine in COMP_BOOTHS:
     })
     print(f"  booth {short}: {status}, {len(jobs)} jobs, idle {idle_h}h")
 
-dashboard_data = {
+# ── coating booth snapshot ───────────────────────────────────────────────────
+COATING_BOOTHS = [
+    ('Coating 1', 'C1', 'Coater 1'),
+    ('Coating 2', 'C2', 'Coater 2'),
+    ('Coating 3', 'C3', 'Coater 3'),
+]
+
+coating_booth_map = {b[0]: [] for b in COATING_BOOTHS}
+for r in all_mfg:
+    if r['wc'] in coating_booth_map and (r['start'] or r['finish']):
+        coating_booth_map[r['wc']].append(r)
+for v in coating_booth_map.values():
+    v.sort(key=lambda x: x['start'] or x['finish'] or datetime.min)
+
+coating_booths = []
+for bname, short, machine in COATING_BOOTHS:
+    jobs = coating_booth_map[bname]
+
+    running = last_done = next_sched = None
+    for j in jobs:
+        s, f = j.get('start'), j.get('finish')
+        if s and f:
+            if s <= SNAPSHOT_DT < f:
+                running = j; break
+            elif f <= SNAPSHOT_DT:
+                if not last_done or f > last_done['finish']:
+                    last_done = j
+        elif s and not f and s <= SNAPSHOT_DT:
+            running = j; break
+        elif s and s > SNAPSHOT_DT:
+            if not next_sched or s < next_sched['start']:
+                next_sched = j
+
+    if running:    status, current = 'RUN',  running
+    elif last_done: status, current = 'IDLE', last_done
+    elif next_sched: status, current = 'SCHED', next_sched
+    else:           status, current = 'IDLE', None
+
+    idle_h = None
+    if status == 'IDLE' and current and current.get('finish'):
+        idle_h = round((SNAPSHOT_DT - current['finish']).total_seconds() / 3600, 1)
+
+    def make_coat_job(j):
+        return {
+            'wo':       j['wo'],
+            'item':     j['item'],
+            'desc':     (j['desc'] or '').strip()[:40],
+            'qty':      str(j.get('qty') or ''),
+            'type':     product_types.get(j['item'], ''),
+            'run_h':    round(j['run_h'], 1) if j.get('run_h') else 0,
+            'start':    fmt_dt(j.get('start')),
+            'finish':   fmt_dt(j.get('finish')),
+            'duration': dur_str(j.get('start'), j.get('finish')),
+        }
+
+    queue_jobs = [j for j in jobs if j.get('start') and j['start'] > SNAPSHOT_DT]
+    queue_total_h = round(sum((j.get('run_h') or 0) for j in queue_jobs), 1)
+
+    coating_booths.append({
+        'name': bname, 'short': short, 'machine': machine,
+        'status': status,
+        'idle_h': idle_h,
+        'current': make_coat_job(current) if current else None,
+        'queue_items': [make_coat_job(j) for j in queue_jobs],
+        'queue_total_h': queue_total_h,
+    })
+    print(f"  coater {short}: {status}, {len(jobs)} jobs, idle {idle_h}h")
     'kpi': {
         'avg_pct': avg_pct,
         'pct_target': PCT_TARGET_DAYS,
@@ -811,6 +877,7 @@ dashboard_data = {
     'monthly_pct': [monthly_avg.get(m, avg_pct) for m in months_sorted],
     'ptype_chart': ptype_chart,
     'compression_booths': compression_booths,
+    'coating_booths': coating_booths,
     'snapshot_str': SNAPSHOT_STR,
 }
 

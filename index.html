@@ -203,8 +203,8 @@ select, input[type=date] {
 /* ── full-width panel ── */
 .full-panel { grid-column: 1 / -1; }
 /* ── view toggle ── */
-#overview-view, #wc-view { display: none; }
-#overview-view.active, #wc-view.active { display: block; }
+#overview-view, #wc-view, #coating-view { display: none; }
+#overview-view.active, #wc-view.active, #coating-view.active { display: block; }
 /* ── scrollable table ── */
 .table-scroll { overflow-x: auto; max-height: 320px; overflow-y: auto; }
 .table-scroll::-webkit-scrollbar { width: 6px; height: 6px; }
@@ -383,6 +383,7 @@ footer {
 <div class="tab-bar">
   <button class="tab active" onclick="switchTab('overview')">📊 PCT Overview</button>
   <button class="tab" onclick="switchTab('wc')">🏭 Work Centre Detail</button>
+  <button class="tab" onclick="switchTab('coating')">🎨 Coating</button>
 </div>
 
 <!-- ═══ OVERVIEW TAB ═══════════════════════════════════════════════════════ -->
@@ -489,6 +490,68 @@ footer {
       </div>
       <div class="panel-body" style="padding:0">
         <canvas id="boothGanttChart" style="display:block"></canvas>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- ═══ COATING TAB ═════════════════════════════════════════════════════════ -->
+<div id="coating-view">
+
+  <div class="snapshot-bar">
+    <span class="live-dot"></span>
+    <span style="color:var(--text2);font-size:12px">Snapshot as at&nbsp;</span>
+    <span class="snapshot-time" id="coating-snapshot-time">—</span>
+    <span class="snapshot-note">· Historical data</span>
+  </div>
+
+  <div class="kpi-row" style="padding-top:14px">
+    <div class="kpi green">
+      <div class="kpi-label">Coaters Running</div>
+      <div class="kpi-value" id="coat-running">—</div>
+      <div class="kpi-sub">of 3 coating booths</div>
+    </div>
+    <div class="kpi amber">
+      <div class="kpi-label">Coaters Idle</div>
+      <div class="kpi-value" id="coat-idle">—</div>
+      <div class="kpi-sub">awaiting next job</div>
+    </div>
+    <div class="kpi purple">
+      <div class="kpi-label">Avg Wait → Coating</div>
+      <div class="kpi-value" id="coat-wait">—</div>
+      <div class="kpi-sub">days from compression finish</div>
+    </div>
+    <div class="kpi red">
+      <div class="kpi-label">PCT vs Target Gap</div>
+      <div class="kpi-value" id="coat-gap">—</div>
+      <div class="kpi-sub">days above 17-day target</div>
+    </div>
+  </div>
+
+  <div class="panel" style="margin:14px 24px 0">
+    <div class="panel-header">
+      <span class="panel-title">Coating Booths — Status Overview</span>
+      <span style="font-size:11px;color:var(--text2)">3 booths</span>
+    </div>
+    <div class="booth-grid" id="coating-booth-grid"></div>
+  </div>
+
+  <div style="padding:16px 0 0">
+    <div class="panel" style="border-radius:0;border-left:none;border-right:none;border-bottom:none">
+      <div class="panel-header" style="padding:12px 24px 10px">
+        <span class="panel-title">Coating Schedule — Timetable</span>
+        <span style="display:flex;gap:14px;align-items:center">
+          <span style="font-size:11px;color:var(--text2);display:flex;align-items:center;gap:5px">
+            <span style="width:10px;height:10px;background:#6dd96d;border-radius:2px;display:inline-block"></span>Running
+          </span>
+          <span style="font-size:11px;color:var(--text2);display:flex;align-items:center;gap:5px">
+            <span style="width:10px;height:10px;background:#9b7fe8;border-radius:2px;display:inline-block"></span>Scheduled Queue
+          </span>
+        </span>
+      </div>
+      <div class="panel-body" style="padding:0">
+        <canvas id="coatingGanttChart" style="display:block"></canvas>
       </div>
     </div>
   </div>
@@ -2377,6 +2440,64 @@ const DATA = {
       "queue_total_h": 11.0
     }
   ],
+  "coating_booths": [
+    {
+      "name": "Coating 1", "short": "C1", "machine": "Coater 1",
+      "status": "RUN", "idle_h": null,
+      "current": {
+        "wo": 1664700, "item": "8700586", "desc": "BLK DETOX B + ENERGY TABS",
+        "qty": "650", "type": "TC", "run_h": 32.0,
+        "start": "21 Apr, 23:00", "finish": "\u2014", "duration": "\u2014"
+      },
+      "queue_items": [
+        {
+          "wo": 1664850, "item": "8700490", "desc": "BLK VITAMIN D3 1000IU TABLETS",
+          "qty": "900", "type": "TC", "run_h": 24.0,
+          "start": "25 Apr, 07:00", "finish": "26 Apr, 07:00", "duration": "24h 00m"
+        }
+      ],
+      "queue_total_h": 24.0
+    },
+    {
+      "name": "Coating 2", "short": "C2", "machine": "Coater 2",
+      "status": "IDLE", "idle_h": 5.5,
+      "current": {
+        "wo": 1664620, "item": "8700604", "desc": "BLK HIGH STRENGTH MAGNESIUM 350MG TAB",
+        "qty": "680", "type": "TC", "run_h": 28.0,
+        "start": "20 Apr, 21:00", "finish": "23 Apr, 01:30", "duration": "28h 30m"
+      },
+      "queue_items": [
+        {
+          "wo": 1664780, "item": "8700604", "desc": "BLK HIGH STRENGTH MAGNESIUM 350MG TAB",
+          "qty": "680", "type": "TC", "run_h": 28.0,
+          "start": "24 Apr, 08:00", "finish": "25 Apr, 12:00", "duration": "28h 00m"
+        },
+        {
+          "wo": 1664781, "item": "8700482", "desc": "BLK ZINC PLUS 25MG TABLETS",
+          "qty": "1600", "type": "TC", "run_h": 20.0,
+          "start": "25 Apr, 14:00", "finish": "26 Apr, 10:00", "duration": "20h 00m"
+        }
+      ],
+      "queue_total_h": 48.0
+    },
+    {
+      "name": "Coating 3", "short": "C3", "machine": "Coater 3",
+      "status": "RUN", "idle_h": null,
+      "current": {
+        "wo": 1664710, "item": "8700630", "desc": "BLK VIT C + ZINC + D3 ORANGE CHW TA",
+        "qty": "465", "type": "TU", "run_h": 18.0,
+        "start": "22 Apr, 15:00", "finish": "\u2014", "duration": "\u2014"
+      },
+      "queue_items": [
+        {
+          "wo": 1664711, "item": "8700650", "desc": "BLK MAGNESIUM GLYCINATE TABLET",
+          "qty": "650", "type": "TC", "run_h": 22.0,
+          "start": "24 Apr, 10:00", "finish": "25 Apr, 08:00", "duration": "22h 00m"
+        }
+      ],
+      "queue_total_h": 22.0
+    }
+  ],
   "snapshot_str": "23 Apr 2026 \u2014 07:00 AM"
 };
 
@@ -2904,11 +3025,310 @@ function renderWCDetail() {
   renderBoothGantt();
 }
 
+// ── Coating Gantt ─────────────────────────────────────────────────────────
+function renderCoatingGantt() {
+  function parseSnap(s) {
+    const m = s.match(/(\d+)\s+(\w+)\s+(\d+)\s+[^\d]+(\d+):(\d+)\s*(AM|PM)/i);
+    if (!m) return new Date();
+    let h = parseInt(m[4]);
+    if (/pm/i.test(m[6]) && h !== 12) h += 12;
+    if (/am/i.test(m[6]) && h === 12) h = 0;
+    return new Date(`${m[2]} ${m[1]} ${m[3]} ${String(h).padStart(2,'0')}:${m[5]}:00`);
+  }
+  function parseJobTime(str, year) {
+    if (!str || str === '—' || str === '—') return null;
+    const m = str.match(/(\d+)\s+(\w+),\s+(\d+):(\d+)/);
+    if (!m) return null;
+    return new Date(`${m[2]} ${m[1]} ${year} ${m[3]}:${m[4]}:00`);
+  }
+  function fmtMs(ms) {
+    const d = new Date(ms);
+    const mon = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][d.getMonth()];
+    return `${d.getDate()} ${mon} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+  }
+
+  const snap     = parseSnap(DATA.snapshot_str);
+  const snapMs   = snap.getTime();
+  const snapYear = snap.getFullYear();
+  const booths   = DATA.coating_booths;
+
+  const boothBars = booths.map(b => {
+    const bars = [];
+    if (b.current && b.current.wo) {
+      const cur = b.current;
+      const s   = parseJobTime(cur.start, snapYear);
+      const f   = parseJobTime(cur.finish, snapYear);
+      const sMs = s ? s.getTime() : snapMs - (cur.run_h || 24) * 3600000;
+      const fMs = f ? f.getTime() : sMs + (cur.run_h || 24) * 3600000;
+      bars.push({ start: sMs, end: fMs, wo: cur.wo, desc: cur.desc, run_h: cur.run_h, qty: cur.qty, type: 'run' });
+    }
+    for (const q of (b.queue_items || [])) {
+      const s = parseJobTime(q.start, snapYear);
+      const f = parseJobTime(q.finish, snapYear);
+      if (s && f) {
+        bars.push({ start: s.getTime(), end: f.getTime(), wo: q.wo, desc: q.desc, run_h: q.run_h, qty: q.qty, type: 'queue' });
+      } else {
+        const lastEnd = bars.length ? bars[bars.length - 1].end : snapMs;
+        const dur = (q.run_h || 24) * 3600000;
+        bars.push({ start: lastEnd, end: lastEnd + dur, wo: q.wo, desc: q.desc, run_h: q.run_h, qty: q.qty, type: 'queue' });
+      }
+    }
+    return bars;
+  });
+
+  const allEnds  = boothBars.flatMap(b => b.map(x => x.end));
+  const winStart = snapMs - 48 * 3600000;
+  const winEnd   = Math.max(snapMs + 48 * 3600000, ...(allEnds.length ? allEnds : [snapMs + 48 * 3600000])) + 4 * 3600000;
+
+  const COLORS = { run: '#6dd96d', queue: '#9b7fe8' };
+  const TEXT_C  = { run: '#0d1f0d', queue: '#110d22' };
+
+  const PAD_L = 56, PAD_R = 20, PAD_T = 18, PAD_B = 52;
+  const ROW_H = 70, BAR_H = 48;
+  const BAR_Y  = (ROW_H - BAR_H) / 2;
+
+  const canvas = document.getElementById('coatingGanttChart');
+  const dpr    = window.devicePixelRatio || 1;
+  const W      = canvas.parentElement.offsetWidth || 800;
+  const H      = PAD_T + booths.length * ROW_H + PAD_B;
+
+  canvas.width  = W * dpr;
+  canvas.height = H * dpr;
+  canvas.style.width  = W + 'px';
+  canvas.style.height = H + 'px';
+
+  const c = canvas.getContext('2d');
+  c.scale(dpr, dpr);
+
+  function msToX(ms) {
+    return PAD_L + (ms - winStart) / (winEnd - winStart) * (W - PAD_L - PAD_R);
+  }
+  function rr(x, y, w, h, r) {
+    r = Math.min(Math.abs(r), Math.abs(w) / 2, Math.abs(h) / 2);
+    c.beginPath();
+    c.moveTo(x + r, y);
+    c.lineTo(x + w - r, y); c.arcTo(x + w, y, x + w, y + r, r);
+    c.lineTo(x + w, y + h - r); c.arcTo(x + w, y + h, x + w - r, y + h, r);
+    c.lineTo(x + r, y + h); c.arcTo(x, y + h, x, y + h - r, r);
+    c.lineTo(x, y + r); c.arcTo(x, y, x + r, y, r);
+    c.closePath();
+  }
+
+  const span    = winEnd - winStart;
+  const gridInt = span > 96 * 3600000 ? 24 * 3600000 : span > 48 * 3600000 ? 12 * 3600000 : 6 * 3600000;
+  const firstTick = Math.ceil(winStart / gridInt) * gridInt;
+
+  let hoverBar = null, mouseX = 0, mouseY = 0;
+
+  function draw() {
+    c.clearRect(0, 0, W, H);
+
+    for (let i = 0; i < booths.length; i++) {
+      c.fillStyle = i % 2 === 0 ? 'rgba(255,255,255,0.025)' : 'rgba(0,0,0,0.07)';
+      c.fillRect(0, PAD_T + i * ROW_H, W, ROW_H);
+    }
+    c.strokeStyle = 'rgba(255,255,255,0.05)'; c.lineWidth = 1;
+    for (let t = firstTick; t <= winEnd; t += gridInt) {
+      const x = msToX(t);
+      c.beginPath(); c.moveTo(x, PAD_T); c.lineTo(x, H - PAD_B); c.stroke();
+    }
+
+    for (let i = 0; i < booths.length; i++) {
+      const rowY = PAD_T + i * ROW_H;
+      const barY = rowY + BAR_Y;
+      c.fillStyle = '#b8ccb5'; c.font = 'bold 12px sans-serif';
+      c.textAlign = 'right'; c.textBaseline = 'middle';
+      c.fillText(booths[i].short, PAD_L - 8, rowY + ROW_H / 2);
+
+      for (const bar of boothBars[i]) {
+        const x1 = msToX(bar.start), x2 = msToX(bar.end);
+        if (x2 < PAD_L || x1 > W - PAD_R) continue;
+        const cx1 = Math.max(x1, PAD_L), cx2 = Math.min(x2, W - PAD_R), bw = cx2 - cx1;
+        if (bw < 2) continue;
+        c.fillStyle = COLORS[bar.type] || COLORS.queue;
+        if (hoverBar === bar) { c.shadowBlur = 10; c.shadowColor = COLORS[bar.type]; }
+        rr(cx1, barY, bw, BAR_H, 5); c.fill();
+        c.shadowBlur = 0;
+
+        if (bw > 44) {
+          c.save();
+          c.beginPath(); c.rect(cx1 + 2, barY, bw - 4, BAR_H); c.clip();
+          c.fillStyle = TEXT_C[bar.type] || '#111';
+          c.font = 'bold 12px sans-serif'; c.textAlign = 'left'; c.textBaseline = 'top';
+          const label = bw > 120 ? `WO ${bar.wo}` : `${bar.wo}`;
+          c.fillText(label, cx1 + 8, barY + 7);
+          if (bw > 120 && bar.desc) {
+            c.font = '10px sans-serif';
+            c.fillText(bar.desc.substring(0, Math.floor(bw / 7)), cx1 + 8, barY + 22);
+          }
+          c.restore();
+        }
+      }
+    }
+
+    const nowX = msToX(snapMs);
+    if (nowX >= PAD_L && nowX <= W - PAD_R) {
+      c.save();
+      c.strokeStyle = '#ff6b6b'; c.lineWidth = 2; c.setLineDash([5, 4]);
+      c.beginPath(); c.moveTo(nowX, PAD_T); c.lineTo(nowX, H - PAD_B); c.stroke();
+      c.setLineDash([]);
+      c.fillStyle = '#ff6b6b'; c.font = 'bold 10px sans-serif';
+      c.textAlign = 'left'; c.textBaseline = 'top';
+      c.fillText('NOW', nowX + 4, PAD_T + 2);
+      c.restore();
+    }
+
+    c.strokeStyle = 'rgba(184,204,181,0.25)'; c.lineWidth = 1;
+    c.beginPath(); c.moveTo(PAD_L, H - PAD_B); c.lineTo(W - PAD_R, H - PAD_B); c.stroke();
+    c.fillStyle = '#b8ccb5'; c.font = '10px sans-serif';
+    c.textAlign = 'center'; c.textBaseline = 'top';
+    for (let t = firstTick; t <= winEnd; t += gridInt) {
+      const x = msToX(t);
+      if (x < PAD_L || x > W - PAD_R) continue;
+      c.strokeStyle = 'rgba(184,204,181,0.3)';
+      c.beginPath(); c.moveTo(x, H - PAD_B); c.lineTo(x, H - PAD_B + 4); c.stroke();
+      c.fillStyle = '#b8ccb5'; c.fillText(fmtMs(t), x, H - PAD_B + 6);
+    }
+
+    if (hoverBar) {
+      const bi  = boothBars.findIndex(bars => bars.includes(hoverBar));
+      const b   = booths[bi];
+      const st  = hoverBar.type === 'run' ? 'RUNNING' : 'Scheduled';
+      const lines = [
+        `${b.short} — WO ${hoverBar.wo}  [${st}]`,
+        hoverBar.desc || '',
+        `Run: ${hoverBar.run_h || '?'}h${hoverBar.qty ? '   Qty: ' + hoverBar.qty : ''}`,
+        `${fmtMs(hoverBar.start)}  →  ${fmtMs(hoverBar.end)}`,
+      ].filter(Boolean);
+      c.font = '11px sans-serif';
+      const lh = 17, pad = 9;
+      const tw = Math.max(...lines.map(l => c.measureText(l).width));
+      const th = lines.length * lh + pad * 2;
+      let tx = mouseX + 14, ty = mouseY - th / 2;
+      if (tx + tw + pad * 2 > W - 4) tx = mouseX - tw - pad * 2 - 14;
+      ty = Math.max(PAD_T, Math.min(ty, H - PAD_B - th));
+      c.fillStyle = 'rgba(14,24,14,0.96)';
+      rr(tx, ty, tw + pad * 2, th, 5); c.fill();
+      c.strokeStyle = 'rgba(255,255,255,0.12)'; c.lineWidth = 1;
+      rr(tx, ty, tw + pad * 2, th, 5); c.stroke();
+      lines.forEach((l, idx) => {
+        c.fillStyle = idx === 0 ? '#e8f5e9' : '#b8ccb5';
+        c.font = idx === 0 ? 'bold 11px sans-serif' : '11px sans-serif';
+        c.textAlign = 'left'; c.textBaseline = 'middle';
+        c.fillText(l, tx + pad, ty + pad + idx * lh + lh / 2);
+      });
+    }
+  }
+
+  function hitTest(mx, my) {
+    const i = Math.floor((my - PAD_T) / ROW_H);
+    if (i < 0 || i >= booths.length) return null;
+    const barY = PAD_T + i * ROW_H + BAR_Y;
+    if (my < barY || my > barY + BAR_H) return null;
+    for (const bar of boothBars[i]) {
+      const x1 = Math.max(msToX(bar.start), PAD_L), x2 = Math.min(msToX(bar.end), W - PAD_R);
+      if (mx >= x1 && mx <= x2) return bar;
+    }
+    return null;
+  }
+
+  canvas.onmousemove = e => {
+    const r = canvas.getBoundingClientRect();
+    mouseX = e.clientX - r.left; mouseY = e.clientY - r.top;
+    const hit = hitTest(mouseX, mouseY);
+    if (hit !== hoverBar) { hoverBar = hit; canvas.style.cursor = hit ? 'pointer' : 'default'; draw(); }
+    else if (hoverBar) draw();
+  };
+  canvas.onmouseleave = () => { hoverBar = null; canvas.style.cursor = 'default'; draw(); };
+  draw();
+}
+
+// ── Coating detail ─────────────────────────────────────────────────────────
+function renderCoatingDetail() {
+  const booths = DATA.coating_booths || [];
+  const d = DATA.kpi;
+
+  document.getElementById('coating-snapshot-time').textContent = DATA.snapshot_str;
+  document.getElementById('coat-running').textContent = booths.filter(b => b.status === 'RUN').length;
+  document.getElementById('coat-idle').textContent    = booths.filter(b => b.status === 'IDLE').length;
+  document.getElementById('coat-gap').textContent     = (d.avg_pct - d.pct_target).toFixed(1) + 'd';
+
+  const coatWaits = DATA.detail_table.filter(r => r.transition && r.transition.includes('Coating'));
+  const avgCoatWait = coatWaits.length
+    ? (coatWaits.reduce((s, r) => s + r.wait_d, 0) / coatWaits.length).toFixed(1) + 'd'
+    : '—';
+  document.getElementById('coat-wait').textContent = avgCoatWait;
+
+  document.getElementById('coating-booth-grid').innerHTML = booths.map(b => {
+    const isRun = b.status === 'RUN';
+    const cur   = b.current || {};
+    const queue = Array.isArray(b.queue_items) ? b.queue_items : [];
+    const badge = isRun
+      ? `<span class="booth-run-badge">RUNNING</span>`
+      : `<span class="booth-idle-badge">IDLE${b.idle_h != null ? ' ' + b.idle_h + 'h' : ''}</span>`;
+
+    const queueHTML = queue.length
+      ? queue.map(q => `
+          <div style="padding:5px 14px 6px;border-top:1px solid var(--border)">
+            <div style="display:flex;justify-content:space-between;align-items:baseline;gap:6px">
+              <span style="font-size:11px;font-weight:700;color:var(--text);white-space:nowrap">WO ${q.wo}</span>
+              <span style="font-size:10px;color:var(--text2);white-space:nowrap">${q.item || ''}</span>
+            </div>
+            <div style="display:flex;justify-content:space-between;align-items:baseline;margin-top:2px;gap:6px">
+              <span style="font-size:10px;color:var(--text2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1">${q.desc || ''}</span>
+              ${q.run_h ? `<span style="font-size:10px;color:var(--amber);white-space:nowrap">${q.run_h}h</span>` : ''}
+              ${q.qty ? `<span style="font-size:10px;color:var(--text2);white-space:nowrap">×${q.qty}</span>` : ''}
+            </div>
+            <div style="font-size:10px;color:var(--text2);margin-top:2px">${q.start !== '—' ? '▶ ' + q.start : ''}</div>
+          </div>`).join('')
+      : `<div style="padding:6px 14px 8px;font-size:11px;color:var(--text2)">No orders in queue</div>`;
+
+    return `
+      <div class="booth-card">
+        <div class="booth-card-header">
+          <div>
+            <div class="booth-name">${b.short}</div>
+            <div class="booth-machine">${b.machine}</div>
+          </div>
+          ${badge}
+        </div>
+        <div class="booth-status-row">
+          <span class="${isRun ? 'status-run-dot' : 'status-idle-dot'}"></span>
+          ${isRun ? 'Running' : 'Idle'}
+        </div>
+        <div class="booth-body">
+          ${cur.wo ? `
+            <div class="booth-wo">WO: ${cur.wo}</div>
+            <div class="booth-item"><span>${cur.item || ''}</span></div>
+            <div class="booth-desc">${cur.desc || ''}</div>
+            <div class="booth-times">
+              <span class="lbl">▶</span><span class="val">${cur.start || '—'}</span>
+              <span class="lbl">■</span><span class="val">${cur.finish || '—'}</span>
+            </div>
+            <div class="booth-meta">
+              <span>Qty: <strong>${cur.qty || '—'}</strong></span>
+              <span>Run: <strong>${cur.duration || '—'}</strong></span>
+            </div>` : '<p style="color:var(--text2);font-size:12px;margin:0">No current job</p>'}
+        </div>
+        <div style="border-top:1px solid var(--border)">
+          <div style="padding:5px 14px 3px;display:flex;justify-content:space-between;align-items:baseline">
+            <span style="font-size:10px;color:var(--text2);text-transform:uppercase;letter-spacing:.6px">
+              Scheduled Queue${queue.length ? ' (' + queue.length + ')' : ''}
+            </span>
+            ${b.queue_total_h > 0 ? `<span style="font-size:11px;color:var(--amber);font-weight:700">${b.queue_total_h}h total</span>` : ''}
+          </div>
+          ${queueHTML}
+        </div>
+      </div>`;
+  }).join('');
+
+  renderCoatingGantt();
+}
+
 // ── tab switching ─────────────────────────────────────────────────────────
 function switchTab(tab) {
   document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-  document.getElementById('overview-view').classList.remove('active');
-  document.getElementById('wc-view').classList.remove('active');
+  ['overview', 'wc', 'coating'].forEach(id => document.getElementById(id + '-view').classList.remove('active'));
   event.target.classList.add('active');
   document.getElementById(tab + '-view').classList.add('active');
 }
@@ -2952,6 +3372,7 @@ renderDailyChart('TC');
 renderBottlenecks(DATA.top_bottlenecks);
 renderTable(DATA.detail_table);
 renderWCDetail();
+renderCoatingDetail();
 populateTransitions();
 
 document.getElementById('f-range').addEventListener('change', applyFilters);
