@@ -250,6 +250,11 @@ footer {
   gap: 12px;
   padding: 14px 18px;
 }
+/* Coating (3 booths): stretch cards across full row width */
+.booth-grid--coating {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 20px;
+}
 .booth-card {
   background: var(--card2);
   border: 1px solid var(--border);
@@ -305,6 +310,15 @@ footer {
 }
 @media (max-width: 1100px) {
   .booth-grid { grid-template-columns: repeat(2, 1fr); }
+  .booth-grid--coating { grid-template-columns: 1fr; }
+}
+/* Bottom timetable charts: full width of inset column (matches .panel margin above) */
+.gantt-timetable-section {
+  padding: 16px 24px 0;
+}
+.gantt-chart-wrap {
+  width: 100%;
+  min-width: 0;
 }
 /* ── product type toggle ── */
 .ptype-tabs { display: flex; gap: 4px; flex-wrap: wrap; }
@@ -363,7 +377,7 @@ footer {
       <option value="">All Types</option>
       <option>TC — Coated Tablet</option>
       <option>TU — Uncoated Tablet</option>
-      <option>CH — Hard Capsule</option>
+      <option>CH — Two Piece</option>
       <option>SG — Softgel</option>
     </select>
   </div>
@@ -403,7 +417,7 @@ footer {
         <div class="ptype-tabs" id="ptype-tabs">
           <button class="ptype-btn active" onclick="switchPtype('TC',this)">Coated Tablet</button>
           <button class="ptype-btn" onclick="switchPtype('TU',this)">Uncoated Tablet</button>
-          <button class="ptype-btn" onclick="switchPtype('CH',this)">Hard Capsule</button>
+          <button class="ptype-btn" onclick="switchPtype('CH',this)">Two Piece</button>
           <button class="ptype-btn" onclick="switchPtype('SG',this)">Softgel</button>
         </div>
       </div>
@@ -472,9 +486,9 @@ footer {
     <div class="booth-grid" id="booth-grid"></div>
   </div>
 
-  <!-- bottom: Booth schedule Gantt — full width -->
-  <div style="padding:16px 0 0">
-    <div class="panel" style="border-radius:0;border-left:none;border-right:none;border-bottom:none">
+  <!-- bottom: Booth schedule Gantt (horizontal inset matches booth panels above) -->
+  <div class="gantt-timetable-section">
+    <div class="panel">
       <div class="panel-header" style="padding:12px 24px 10px">
         <span class="panel-title">Compression Schedule — Timetable</span>
         <span style="display:flex;gap:14px;align-items:center">
@@ -490,7 +504,7 @@ footer {
         </span>
       </div>
       <div class="panel-body" style="padding:0">
-        <canvas id="boothGanttChart" style="display:block"></canvas>
+        <div class="gantt-chart-wrap"><canvas id="boothGanttChart" style="display:block;width:100%"></canvas></div>
       </div>
     </div>
   </div>
@@ -535,11 +549,11 @@ footer {
       <span class="panel-title">Coating Booths — Status Overview</span>
       <span style="font-size:11px;color:var(--text2)">3 booths</span>
     </div>
-    <div class="booth-grid" id="coating-booth-grid"></div>
+    <div class="booth-grid booth-grid--coating" id="coating-booth-grid"></div>
   </div>
 
-  <div style="padding:16px 0 0">
-    <div class="panel" style="border-radius:0;border-left:none;border-right:none;border-bottom:none">
+  <div class="gantt-timetable-section">
+    <div class="panel">
       <div class="panel-header" style="padding:12px 24px 10px">
         <span class="panel-title">Coating Schedule — Timetable</span>
         <span style="display:flex;gap:14px;align-items:center">
@@ -552,7 +566,7 @@ footer {
         </span>
       </div>
       <div class="panel-body" style="padding:0">
-        <canvas id="coatingGanttChart" style="display:block"></canvas>
+        <div class="gantt-chart-wrap"><canvas id="coatingGanttChart" style="display:block;width:100%"></canvas></div>
       </div>
     </div>
   </div>
@@ -600,8 +614,8 @@ footer {
     <div class="booth-grid" id="dispensing-booth-grid"></div>
   </div>
 
-  <div style="padding:16px 0 0">
-    <div class="panel" style="border-radius:0;border-left:none;border-right:none;border-bottom:none">
+  <div class="gantt-timetable-section">
+    <div class="panel">
       <div class="panel-header" style="padding:12px 24px 10px">
         <span class="panel-title">Dispensing Schedule — Timetable</span>
         <span style="display:flex;gap:14px;align-items:center">
@@ -614,7 +628,7 @@ footer {
         </span>
       </div>
       <div class="panel-body" style="padding:0">
-        <canvas id="dispensingGanttChart" style="display:block"></canvas>
+        <div class="gantt-chart-wrap"><canvas id="dispensingGanttChart" style="display:block;width:100%"></canvas></div>
       </div>
     </div>
   </div>
@@ -2666,7 +2680,7 @@ function renderKPIs() {
   const gap = (d.avg_pct - d.pct_target).toFixed(1);
   const gapLabel = gap > 0 ? `${gap}d above target` : `${Math.abs(gap)}d below target`;
 
-  const ptypes = [['TC','Coated Tab'],['TU','Uncoated Tab'],['CH','Hard Cap'],['SG','Softgel']];
+  const ptypes = [['TC','Coated Tab'],['TU','Uncoated Tab'],['CH','Two Piece'],['SG','Softgel']];
   const mfgRows = ptypes.map(([pt, label]) => {
     const v = avgMfgDays(pt);
     return v ? `<span style="font-size:11px;color:var(--text2)">${label}: <b style="color:var(--text)">${v}d</b></span>` : '';
@@ -2832,6 +2846,16 @@ function renderTable(rows) {
     </table>`;
 }
 
+/** Width for schedule canvases (hidden tabs report 0px until laid out). */
+function canvasWidthForGantt(canvas) {
+  const el = canvas.parentElement;
+  let w = el ? el.offsetWidth : 0;
+  if (!w || w < 100) {
+    w = Math.max(320, (document.documentElement && document.documentElement.clientWidth) || window.innerWidth || 800);
+  }
+  return w;
+}
+
 // ── WC detail view ────────────────────────────────────────────────────────
 // ── Compression booth Gantt / timetable ──────────────────────────────────────
 function renderBoothGantt() {
@@ -2893,7 +2917,7 @@ function renderBoothGantt() {
 
   const canvas = document.getElementById('boothGanttChart');
   const dpr    = window.devicePixelRatio || 1;
-  const W      = canvas.parentElement.offsetWidth || 800;
+  const W      = canvasWidthForGantt(canvas);
   const H      = PAD_T + booths.length * ROW_H + PAD_B;
 
   canvas.width  = W * dpr;
@@ -3221,7 +3245,7 @@ function renderDispensingGantt() {
 
   const canvas = document.getElementById('dispensingGanttChart');
   const dpr    = window.devicePixelRatio || 1;
-  const W      = canvas.parentElement.offsetWidth || 800;
+  const W      = canvasWidthForGantt(canvas);
   const H      = PAD_T + booths.length * ROW_H + PAD_B;
 
   canvas.width  = W * dpr;
@@ -3516,7 +3540,7 @@ function renderCoatingGantt() {
 
   const canvas = document.getElementById('coatingGanttChart');
   const dpr    = window.devicePixelRatio || 1;
-  const W      = canvas.parentElement.offsetWidth || 800;
+  const W      = canvasWidthForGantt(canvas);
   const H      = PAD_T + booths.length * ROW_H + PAD_B;
 
   canvas.width  = W * dpr;
@@ -3752,12 +3776,41 @@ function renderCoatingDetail() {
   renderCoatingGantt();
 }
 
+function scheduleGanttChartsRedraw() {
+  requestAnimationFrame(() => {
+    renderBoothGantt();
+    renderDispensingGantt();
+    renderCoatingGantt();
+  });
+}
+
+(function setupGanttChartsResize() {
+  let scheduled = false;
+  function onResize() {
+    if (scheduled) return;
+    scheduled = true;
+    requestAnimationFrame(() => {
+      scheduled = false;
+      renderBoothGantt();
+      renderDispensingGantt();
+      renderCoatingGantt();
+    });
+  }
+  window.addEventListener('resize', onResize);
+  document.querySelectorAll('.gantt-chart-wrap').forEach(el => {
+    try {
+      new ResizeObserver(onResize).observe(el);
+    } catch (e) { /* older browsers */ }
+  });
+})();
+
 // ── tab switching ─────────────────────────────────────────────────────────
 function switchTab(tab) {
   document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
   ['overview', 'wc', 'coating', 'dispensing'].forEach(id => document.getElementById(id + '-view').classList.remove('active'));
   event.target.classList.add('active');
   document.getElementById(tab + '-view').classList.add('active');
+  scheduleGanttChartsRedraw();
 }
 
 // ── filter logic ──────────────────────────────────────────────────────────
