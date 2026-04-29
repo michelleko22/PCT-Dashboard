@@ -470,25 +470,25 @@ footer {
     <div class="booth-grid" id="booth-grid"></div>
   </div>
 
-  <!-- bottom: Booth schedule Gantt -->
-  <div style="padding:16px 24px 24px">
-    <div class="panel">
-      <div class="panel-header">
+  <!-- bottom: Booth schedule Gantt — full width -->
+  <div style="padding:16px 0 0">
+    <div class="panel" style="border-radius:0;border-left:none;border-right:none;border-bottom:none">
+      <div class="panel-header" style="padding:12px 24px 10px">
         <span class="panel-title">Compression Schedule — Timetable</span>
         <span style="display:flex;gap:14px;align-items:center">
           <span style="font-size:11px;color:var(--text2);display:flex;align-items:center;gap:5px">
-            <span style="width:10px;height:10px;background:rgba(109,217,109,0.85);border-radius:2px;display:inline-block"></span>Running (IP)
+            <span style="width:10px;height:10px;background:#6dd96d;border-radius:2px;display:inline-block"></span>Running (IP)
           </span>
           <span style="font-size:11px;color:var(--text2);display:flex;align-items:center;gap:5px">
-            <span style="width:10px;height:10px;background:rgba(77,166,255,0.85);border-radius:2px;display:inline-block"></span>Released (R)
+            <span style="width:10px;height:10px;background:#4da6ff;border-radius:2px;display:inline-block"></span>Released (R)
           </span>
           <span style="font-size:11px;color:var(--text2);display:flex;align-items:center;gap:5px">
-            <span style="width:10px;height:10px;background:rgba(245,166,35,0.85);border-radius:2px;display:inline-block"></span>Waiting (W)
+            <span style="width:10px;height:10px;background:#f5a623;border-radius:2px;display:inline-block"></span>Waiting (W)
           </span>
         </span>
       </div>
-      <div class="panel-body">
-        <div class="chart-wrap" style="height:auto"><canvas id="boothGanttChart"></canvas></div>
+      <div class="panel-body" style="padding:0">
+        <canvas id="boothGanttChart" style="display:block"></canvas>
       </div>
     </div>
   </div>
