@@ -65,8 +65,7 @@ MFG_SHEETS = {
     'encap_hard':  ['TC 5-Bosch'],
     'coating':     ['Coating 1','Coating 2','Coating 3'],
     'sg_gel_disp': ['SG Gel Disp 1','SG Gel Disp 2'],
-    # SG Softgel med dispensing — data lives only on these two worksheets
-    'sg_med_disp': ['SG Med Disp 1', 'SG Med Disp 2'],
+    'sg_med_disp': ['SG Med Disp 1', 'SG Med Disp 2', 'SG Med Disp 3'],
     'sg_encap':    ['SG Encap 1','SG Encap 2','SG Encap 3'],
 }
 PKG_SHEETS = ['VFILLDU1','VFILLTRI','VFILLCR1','VFILLDU2','VFILLBL1']
