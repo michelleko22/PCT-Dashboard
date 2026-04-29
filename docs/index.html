@@ -85,7 +85,7 @@ select, input[type=date] {
 /* ── KPI cards ── */
 .kpi-row {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(3, 1fr);
   gap: 16px;
   padding: 16px 24px 0;
 }
@@ -482,11 +482,6 @@ footer {
       <div class="kpi-value" id="wc-comp-wait">—</div>
       <div class="kpi-sub">days from dispensing finish</div>
     </div>
-    <div class="kpi red">
-      <div class="kpi-label">PCT vs Target Gap</div>
-      <div class="kpi-value" id="wc-gap">—</div>
-      <div class="kpi-sub">days above 17-day target</div>
-    </div>
   </div>
 
   <!-- booth grid -->
@@ -549,11 +544,6 @@ footer {
       <div class="kpi-value" id="coat-wait">—</div>
       <div class="kpi-sub">days from compression finish</div>
     </div>
-    <div class="kpi red">
-      <div class="kpi-label">PCT vs Target Gap</div>
-      <div class="kpi-value" id="coat-gap">—</div>
-      <div class="kpi-sub">days above 17-day target</div>
-    </div>
   </div>
 
   <div class="panel" style="margin:14px 24px 0">
@@ -611,11 +601,6 @@ footer {
       <div class="kpi-value" id="disp-wait">—</div>
       <div class="kpi-sub">days from dispensing finish</div>
     </div>
-    <div class="kpi red">
-      <div class="kpi-label">PCT vs Target Gap</div>
-      <div class="kpi-value" id="disp-gap">—</div>
-      <div class="kpi-sub">days above 17-day target</div>
-    </div>
   </div>
 
   <div class="panel" style="margin:14px 24px 0">
@@ -672,11 +657,6 @@ footer {
       <div class="kpi-label">Avg Wait → Packaging</div>
       <div class="kpi-value" id="pkg-wait">—</div>
       <div class="kpi-sub">days from last manufacturing step</div>
-    </div>
-    <div class="kpi red">
-      <div class="kpi-label">PCT vs Target Gap</div>
-      <div class="kpi-value" id="pkg-gap">—</div>
-      <div class="kpi-sub">days above 17-day target</div>
     </div>
   </div>
 
@@ -2258,17 +2238,55 @@ const DATA = {
       ],
       "datasets": [
         {
-          "label": "SG Encapsulation",
+          "label": "Med dispensing",
           "data": [
-            33.2,
-            95.98,
-            30.31,
-            27.44,
-            28.0,
-            24.0,
-            26.26,
-            24.52,
-            28.96
+            13.2,
+            38.4,
+            12.1,
+            11.0,
+            11.2,
+            9.6,
+            10.5,
+            9.8,
+            11.6
+          ],
+          "backgroundColor": "#e040a8",
+          "borderColor": "#e040a8",
+          "borderWidth": 0,
+          "borderRadius": 2,
+          "isWait": false
+        },
+        {
+          "label": "Wait \u2192 Encapsulation",
+          "data": [
+            48.7,
+            112.35,
+            36.18,
+            28.92,
+            33.04,
+            28.32,
+            31.52,
+            29.42,
+            34.75
+          ],
+          "backgroundColor": "#c8e8f5",
+          "borderColor": "#7eb8d4",
+          "borderWidth": 1,
+          "borderRadius": 2,
+          "isWait": true
+        },
+        {
+          "label": "Encapsulation",
+          "data": [
+            20.0,
+            57.59,
+            18.13,
+            16.52,
+            16.96,
+            14.4,
+            15.74,
+            15.12,
+            17.84
           ],
           "backgroundColor": "#7eb8d4",
           "borderColor": "#7eb8d4",
@@ -3246,8 +3264,6 @@ function renderWCDetail() {
     ? (compWaits.reduce((s,r)=>s+r.wait_d,0)/compWaits.length).toFixed(1) + 'd'
     : '—';
   document.getElementById('wc-comp-wait').textContent = avgCompWait;
-  document.getElementById('wc-gap').textContent = (d.avg_pct - d.pct_target).toFixed(1) + 'd';
-
   document.getElementById('snapshot-time').textContent = DATA.snapshot_str;
 
   // Booth grid
@@ -3538,8 +3554,6 @@ function renderDispensingDetail() {
   document.getElementById('disp-snapshot-time').textContent = DATA.snapshot_str;
   document.getElementById('disp-running').textContent = booths.filter(b => b.status === 'RUN').length;
   document.getElementById('disp-idle').textContent    = booths.filter(b => b.status === 'IDLE').length;
-  document.getElementById('disp-gap').textContent     = (d.avg_pct - d.pct_target).toFixed(1) + 'd';
-
   const dispWaits = DATA.detail_table.filter(r => r.transition && r.transition.includes('Compression'));
   const avgDispWait = dispWaits.length
     ? (dispWaits.reduce((s, r) => s + r.wait_d, 0) / dispWaits.length).toFixed(1) + 'd'
@@ -4059,8 +4073,6 @@ function renderPackagingDetail() {
   document.getElementById('pkg-snapshot-time').textContent = DATA.snapshot_str;
   document.getElementById('pkg-running').textContent = booths.filter(b => b.status === 'RUN').length;
   document.getElementById('pkg-idle').textContent    = booths.filter(b => b.status === 'IDLE').length;
-  document.getElementById('pkg-gap').textContent       = (d.avg_pct - d.pct_target).toFixed(1) + 'd';
-
   const pkgWaits = DATA.detail_table.filter(r => r.transition === 'Manufacturing → Packaging');
   const avgPkgWait = pkgWaits.length
     ? (pkgWaits.reduce((s, r) => s + r.wait_d, 0) / pkgWaits.length).toFixed(1) + 'd'
@@ -4137,8 +4149,6 @@ function renderCoatingDetail() {
   document.getElementById('coating-snapshot-time').textContent = DATA.snapshot_str;
   document.getElementById('coat-running').textContent = booths.filter(b => b.status === 'RUN').length;
   document.getElementById('coat-idle').textContent    = booths.filter(b => b.status === 'IDLE').length;
-  document.getElementById('coat-gap').textContent     = (d.avg_pct - d.pct_target).toFixed(1) + 'd';
-
   const coatWaits = DATA.detail_table.filter(r => r.transition && r.transition.includes('Coating'));
   const avgCoatWait = coatWaits.length
     ? (coatWaits.reduce((s, r) => s + r.wait_d, 0) / coatWaits.length).toFixed(1) + 'd'
