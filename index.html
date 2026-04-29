@@ -203,8 +203,8 @@ select, input[type=date] {
 /* ── full-width panel ── */
 .full-panel { grid-column: 1 / -1; }
 /* ── view toggle ── */
-#overview-view, #wc-view, #coating-view, #dispensing-view, #packaging-view { display: none; }
-#overview-view.active, #wc-view.active, #coating-view.active, #dispensing-view.active, #packaging-view.active { display: block; }
+#overview-view, #wc-view, #coating-view, #dispensing-view, #gel-dispensing-view, #packaging-view { display: none; }
+#overview-view.active, #wc-view.active, #coating-view.active, #dispensing-view.active, #gel-dispensing-view.active, #packaging-view.active { display: block; }
 /* ── scrollable table ── */
 .table-scroll { overflow-x: auto; max-height: 320px; overflow-y: auto; }
 .table-scroll::-webkit-scrollbar { width: 6px; height: 6px; }
@@ -319,9 +319,15 @@ footer {
   border-radius: 10px; font-size: 10px; font-weight: 600;
   background: rgba(109,217,109,.15); color: var(--green-hi);
 }
+/* SG Gel dispensing (2 stations) */
+.booth-grid.booth-grid--gel {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 20px;
+}
 @media (max-width: 1100px) {
   .booth-grid:not(.booth-grid--packaging) { grid-template-columns: repeat(2, 1fr); }
   .booth-grid--coating { grid-template-columns: 1fr; }
+  .booth-grid.booth-grid--gel { grid-template-columns: 1fr; }
 }
 /* Bottom timetable charts: full width of inset column (matches .panel margin above) */
 .gantt-timetable-section {
@@ -408,6 +414,7 @@ footer {
 <div class="tab-bar">
   <button class="tab active" onclick="switchTab('overview')">📊 PCT Overview</button>
   <button class="tab" onclick="switchTab('dispensing')">⚗️ Dispensing</button>
+  <button class="tab" onclick="switchTab('gel-dispensing')">🫧 Gel Dispensing</button>
   <button class="tab" onclick="switchTab('wc')">🏭 Compression</button>
   <button class="tab" onclick="switchTab('coating')">🎨 Coating</button>
   <button class="tab" onclick="switchTab('packaging')">📦 Packaging</button>
@@ -626,6 +633,63 @@ footer {
       </div>
       <div class="panel-body" style="padding:0">
         <div class="gantt-chart-wrap"><canvas id="dispensingGanttChart" style="display:block;width:100%"></canvas></div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- ═══ GEL DISPENSING TAB (Softgel) ══════════════════════════════════════════ -->
+<div id="gel-dispensing-view">
+
+  <div class="snapshot-bar">
+    <span class="live-dot"></span>
+    <span style="color:var(--text2);font-size:12px">Snapshot as at&nbsp;</span>
+    <span class="snapshot-time" id="gel-disp-snapshot-time">—</span>
+    <span class="snapshot-note">· SG Gel Disp sheets</span>
+  </div>
+
+  <div class="kpi-row" style="padding-top:14px">
+    <div class="kpi green">
+      <div class="kpi-label">Gel Lines Running</div>
+      <div class="kpi-value" id="gel-disp-running">—</div>
+      <div class="kpi-sub">of 2 gel dispensing booths</div>
+    </div>
+    <div class="kpi amber">
+      <div class="kpi-label">Gel Lines Idle</div>
+      <div class="kpi-value" id="gel-disp-idle">—</div>
+      <div class="kpi-sub">awaiting next job</div>
+    </div>
+    <div class="kpi purple">
+      <div class="kpi-label">Avg Wait → Encapsulation</div>
+      <div class="kpi-value" id="gel-disp-wait">—</div>
+      <div class="kpi-sub">days from gel dispensing finish</div>
+    </div>
+  </div>
+
+  <div class="panel" style="margin:14px 24px 0">
+    <div class="panel-header">
+      <span class="panel-title">SG Gel Dispensing Booths — Status Overview</span>
+      <span style="font-size:11px;color:var(--text2)">2 booths</span>
+    </div>
+    <div class="booth-grid booth-grid--gel" id="gel-dispensing-booth-grid"></div>
+  </div>
+
+  <div class="gantt-timetable-section">
+    <div class="panel">
+      <div class="panel-header" style="padding:12px 24px 10px">
+        <span class="panel-title">Gel Dispensing Schedule — Timetable</span>
+        <span style="display:flex;gap:14px;align-items:center">
+          <span style="font-size:11px;color:var(--text2);display:flex;align-items:center;gap:5px">
+            <span style="width:10px;height:10px;background:#6dd96d;border-radius:2px;display:inline-block"></span>Running
+          </span>
+          <span style="font-size:11px;color:var(--text2);display:flex;align-items:center;gap:5px">
+            <span style="width:10px;height:10px;background:#f5a623;border-radius:2px;display:inline-block"></span>Scheduled Queue
+          </span>
+        </span>
+      </div>
+      <div class="panel-body" style="padding:0">
+        <div class="gantt-chart-wrap"><canvas id="gelDispensingGanttChart" style="display:block;width:100%"></canvas></div>
       </div>
     </div>
   </div>
@@ -2736,6 +2800,36 @@ const DATA = {
       "queue_total_h": 7.0
     }
   ],
+  "gel_dispensing_booths": [
+    {
+      "name": "SG Gel Disp 1", "short": "G1", "machine": "Gel Dispenser 1",
+      "status": "RUN", "idle_h": null,
+      "current": {
+        "wo": 1665910, "item": "8700991", "desc": "SG GEL PRODUCT LINE A",
+        "qty": "500", "type": "SG", "run_h": 8.0,
+        "start": "23 Apr, 05:00", "finish": "\u2014", "duration": "\u2014"
+      },
+      "queue_items": [
+        {
+          "wo": 1665911, "item": "8700992", "desc": "SG GEL PRODUCT LINE B",
+          "qty": "480", "type": "SG", "run_h": 7.5,
+          "start": "24 Apr, 08:00", "finish": "24 Apr, 15:30", "duration": "7h 30m"
+        }
+      ],
+      "queue_total_h": 7.5
+    },
+    {
+      "name": "SG Gel Disp 2", "short": "G2", "machine": "Gel Dispenser 2",
+      "status": "IDLE", "idle_h": 4.5,
+      "current": {
+        "wo": 1665920, "item": "8700995", "desc": "SG GEL PRODUCT LINE E",
+        "qty": "620", "type": "SG", "run_h": 9.0,
+        "start": "22 Apr, 16:00", "finish": "23 Apr, 01:00", "duration": "9h 00m"
+      },
+      "queue_items": [],
+      "queue_total_h": 0
+    }
+  ],
   "packaging_booths": [
     {
       "name": "VFILLDU1", "short": "DU1", "machine": "VFILL DU1",
@@ -3626,6 +3720,304 @@ function renderDispensingDetail() {
   renderDispensingGantt();
 }
 
+// ── Gel Dispensing Gantt (SG Gel Disp 1 & 2) ─────────────────────────────
+function renderGelDispensingGantt() {
+  function parseSnap(s) {
+    const m = s.match(/(\d+)\s+(\w+)\s+(\d+)\s+[^\d]+(\d+):(\d+)\s*(AM|PM)/i);
+    if (!m) return new Date();
+    let h = parseInt(m[4]);
+    if (/pm/i.test(m[6]) && h !== 12) h += 12;
+    if (/am/i.test(m[6]) && h === 12) h = 0;
+    return new Date(`${m[2]} ${m[1]} ${m[3]} ${String(h).padStart(2,'0')}:${m[5]}:00`);
+  }
+  function parseJobTime(str, year) {
+    if (!str || str === '—' || str === '—') return null;
+    const m = str.match(/(\d+)\s+(\w+),\s+(\d+):(\d+)/);
+    if (!m) return null;
+    return new Date(`${m[2]} ${m[1]} ${year} ${m[3]}:${m[4]}:00`);
+  }
+  function fmtMs(ms) {
+    const d = new Date(ms);
+    const mon = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][d.getMonth()];
+    return `${d.getDate()} ${mon} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+  }
+
+  const snap      = parseSnap(DATA.snapshot_str);
+  const snapMs    = snap.getTime();
+  const snapYear  = snap.getFullYear();
+  const booths    = DATA.gel_dispensing_booths || [];
+
+  const boothBars = booths.map(b => {
+    const bars = [];
+    if (b.current && b.current.wo) {
+      const cur = b.current;
+      const s   = parseJobTime(cur.start, snapYear);
+      const f   = parseJobTime(cur.finish, snapYear);
+      const sMs = s ? s.getTime() : snapMs - (cur.run_h || 4) * 3600000;
+      const fMs = f ? f.getTime() : sMs + (cur.run_h || 4) * 3600000;
+      bars.push({ start: sMs, end: fMs, wo: cur.wo, desc: cur.desc, run_h: cur.run_h, qty: cur.qty, type: 'run' });
+    }
+    for (const q of (b.queue_items || [])) {
+      const s = parseJobTime(q.start, snapYear);
+      const f = parseJobTime(q.finish, snapYear);
+      if (s && f) {
+        bars.push({ start: s.getTime(), end: f.getTime(), wo: q.wo, desc: q.desc, run_h: q.run_h, qty: q.qty, type: 'queue' });
+      } else {
+        const lastEnd = bars.length ? bars[bars.length - 1].end : snapMs;
+        const dur = (q.run_h || 4) * 3600000;
+        bars.push({ start: lastEnd, end: lastEnd + dur, wo: q.wo, desc: q.desc, run_h: q.run_h, qty: q.qty, type: 'queue' });
+      }
+    }
+    return bars;
+  });
+
+  const allEnds  = boothBars.flatMap(b => b.map(x => x.end));
+  const winStart = snapMs - 24 * 3600000;
+  const winEnd   = Math.max(snapMs + 24 * 3600000, ...(allEnds.length ? allEnds : [snapMs + 24 * 3600000])) + 2 * 3600000;
+
+  const COLORS = { run: '#6dd96d', queue: '#f5a623' };
+  const TEXT_C  = { run: '#0d1f0d', queue: '#1a0f00' };
+
+  const PAD_L = 56, PAD_R = 20, PAD_T = 18, PAD_B = 52;
+  const ROW_H = 60, BAR_H = 42;
+  const BAR_Y  = (ROW_H - BAR_H) / 2;
+
+  const canvas = document.getElementById('gelDispensingGanttChart');
+  if (!canvas) return;
+  const dpr    = window.devicePixelRatio || 1;
+  const W      = canvasWidthForGantt(canvas);
+  const H      = PAD_T + booths.length * ROW_H + PAD_B;
+
+  canvas.width  = W * dpr;
+  canvas.height = H * dpr;
+  canvas.style.width  = W + 'px';
+  canvas.style.height = H + 'px';
+
+  const c = canvas.getContext('2d');
+  c.scale(dpr, dpr);
+
+  function msToX(ms) { return PAD_L + (ms - winStart) / (winEnd - winStart) * (W - PAD_L - PAD_R); }
+  function rr(x, y, w, h, r) {
+    r = Math.min(Math.abs(r), Math.abs(w) / 2, Math.abs(h) / 2);
+    c.beginPath();
+    c.moveTo(x + r, y);
+    c.lineTo(x + w - r, y); c.arcTo(x + w, y, x + w, y + r, r);
+    c.lineTo(x + w, y + h - r); c.arcTo(x + w, y + h, x + w - r, y + h, r);
+    c.lineTo(x + r, y + h); c.arcTo(x, y + h, x, y + h - r, r);
+    c.lineTo(x, y + r); c.arcTo(x, y, x + r, y, r);
+    c.closePath();
+  }
+
+  const hourMs  = 3600000;
+  const span    = winEnd - winStart;
+  const gridInt = span > 60 * hourMs ? 12 * hourMs : span > 36 * hourMs ? 6 * hourMs : 3 * hourMs;
+  const firstTick = Math.ceil(winStart / gridInt) * gridInt;
+
+  let hoverBar = null, mouseX = 0, mouseY = 0;
+
+  function draw() {
+    c.clearRect(0, 0, W, H);
+
+    for (let i = 0; i < booths.length; i++) {
+      c.fillStyle = i % 2 === 0 ? 'rgba(255,255,255,0.025)' : 'rgba(0,0,0,0.07)';
+      c.fillRect(0, PAD_T + i * ROW_H, W, ROW_H);
+    }
+    c.strokeStyle = 'rgba(255,255,255,0.05)'; c.lineWidth = 1;
+    for (let t = firstTick; t <= winEnd; t += gridInt) {
+      const x = msToX(t);
+      c.beginPath(); c.moveTo(x, PAD_T); c.lineTo(x, H - PAD_B); c.stroke();
+    }
+
+    for (let i = 0; i < booths.length; i++) {
+      const rowY = PAD_T + i * ROW_H;
+      const barY = rowY + BAR_Y;
+      c.fillStyle = '#b8ccb5'; c.font = 'bold 12px sans-serif';
+      c.textAlign = 'right'; c.textBaseline = 'middle';
+      c.fillText(booths[i].short, PAD_L - 8, rowY + ROW_H / 2);
+
+      for (const bar of boothBars[i]) {
+        const x1 = msToX(bar.start), x2 = msToX(bar.end);
+        if (x2 < PAD_L || x1 > W - PAD_R) continue;
+        const cx1 = Math.max(x1, PAD_L), cx2 = Math.min(x2, W - PAD_R), bw = cx2 - cx1;
+        if (bw < 2) continue;
+        const col = COLORS[bar.type] || COLORS.queue;
+        c.fillStyle = col;
+        if (hoverBar === bar) { c.shadowBlur = 8; c.shadowColor = col; }
+        rr(cx1, barY, bw, BAR_H, 5); c.fill();
+        c.shadowBlur = 0;
+
+        if (bw > 44) {
+          c.save();
+          c.beginPath(); c.rect(cx1 + 2, barY, bw - 4, BAR_H); c.clip();
+          c.fillStyle = TEXT_C[bar.type] || '#111';
+          c.font = 'bold 11px sans-serif';
+          c.textAlign = 'left';
+          c.textBaseline = 'middle';
+          const label = bw > 110 ? `WO ${bar.wo}` : `${bar.wo}`;
+          c.fillText(label, cx1 + 7, barY + BAR_H / 2);
+          c.restore();
+        }
+      }
+    }
+
+    const nowX = msToX(snapMs);
+    if (nowX >= PAD_L && nowX <= W - PAD_R) {
+      c.save();
+      c.strokeStyle = '#ff6b6b'; c.lineWidth = 2; c.setLineDash([5, 4]);
+      c.beginPath(); c.moveTo(nowX, PAD_T); c.lineTo(nowX, H - PAD_B); c.stroke();
+      c.setLineDash([]);
+      c.fillStyle = '#ff6b6b'; c.font = 'bold 10px sans-serif';
+      c.textAlign = 'left'; c.textBaseline = 'top';
+      c.fillText('NOW', nowX + 4, PAD_T + 2);
+      c.restore();
+    }
+
+    c.strokeStyle = 'rgba(184,204,181,0.25)'; c.lineWidth = 1;
+    c.beginPath(); c.moveTo(PAD_L, H - PAD_B); c.lineTo(W - PAD_R, H - PAD_B); c.stroke();
+    c.fillStyle = '#b8ccb5'; c.font = '10px sans-serif';
+    c.textAlign = 'center'; c.textBaseline = 'top';
+    for (let t = firstTick; t <= winEnd; t += gridInt) {
+      const x = msToX(t);
+      if (x < PAD_L || x > W - PAD_R) continue;
+      c.strokeStyle = 'rgba(184,204,181,0.3)';
+      c.beginPath(); c.moveTo(x, H - PAD_B); c.lineTo(x, H - PAD_B + 4); c.stroke();
+      c.fillStyle = '#b8ccb5';
+      c.fillText(fmtMs(t), x, H - PAD_B + 6);
+    }
+
+    if (hoverBar) {
+      const bi  = boothBars.findIndex(bars => bars.includes(hoverBar));
+      const b   = booths[bi];
+      const st  = hoverBar.type === 'run' ? 'RUNNING' : 'Scheduled';
+      const lines = [
+        `${b.short} — WO ${hoverBar.wo}  [${st}]`,
+        hoverBar.desc || '',
+        `Run: ${hoverBar.run_h || '?'}h${hoverBar.qty ? '   Qty: ' + hoverBar.qty : ''}`,
+        `${fmtMs(hoverBar.start)}  →  ${fmtMs(hoverBar.end)}`,
+      ].filter(Boolean);
+      c.font = '11px sans-serif';
+      const lh = 17, pad = 9;
+      const tw = Math.max(...lines.map(l => c.measureText(l).width));
+      const th = lines.length * lh + pad * 2;
+      let tx = mouseX + 14, ty = mouseY - th / 2;
+      if (tx + tw + pad * 2 > W - 4) tx = mouseX - tw - pad * 2 - 14;
+      ty = Math.max(PAD_T, Math.min(ty, H - PAD_B - th));
+      c.fillStyle = 'rgba(14,24,14,0.96)';
+      rr(tx, ty, tw + pad * 2, th, 5); c.fill();
+      c.strokeStyle = 'rgba(255,255,255,0.12)'; c.lineWidth = 1;
+      rr(tx, ty, tw + pad * 2, th, 5); c.stroke();
+      lines.forEach((l, idx) => {
+        c.fillStyle = idx === 0 ? '#e8f5e9' : '#b8ccb5';
+        c.font = idx === 0 ? 'bold 11px sans-serif' : '11px sans-serif';
+        c.textAlign = 'left'; c.textBaseline = 'middle';
+        c.fillText(l, tx + pad, ty + pad + idx * lh + lh / 2);
+      });
+    }
+  }
+
+  function hitTest(mx, my) {
+    const i = Math.floor((my - PAD_T) / ROW_H);
+    if (i < 0 || i >= booths.length) return null;
+    const barY = PAD_T + i * ROW_H + BAR_Y;
+    if (my < barY || my > barY + BAR_H) return null;
+    for (const bar of boothBars[i]) {
+      const x1 = Math.max(msToX(bar.start), PAD_L), x2 = Math.min(msToX(bar.end), W - PAD_R);
+      if (mx >= x1 && mx <= x2) return bar;
+    }
+    return null;
+  }
+
+  canvas.onmousemove = e => {
+    const r = canvas.getBoundingClientRect();
+    mouseX = e.clientX - r.left; mouseY = e.clientY - r.top;
+    const hit = hitTest(mouseX, mouseY);
+    if (hit !== hoverBar) { hoverBar = hit; canvas.style.cursor = hit ? 'pointer' : 'default'; draw(); }
+    else if (hoverBar) draw();
+  };
+  canvas.onmouseleave = () => { hoverBar = null; canvas.style.cursor = 'default'; draw(); };
+  draw();
+}
+
+// ── Gel dispensing detail ─────────────────────────────────────────────────
+function renderGelDispensingDetail() {
+  const booths = DATA.gel_dispensing_booths || [];
+
+  document.getElementById('gel-disp-snapshot-time').textContent = DATA.snapshot_str;
+  document.getElementById('gel-disp-running').textContent = booths.filter(b => b.status === 'RUN').length;
+  document.getElementById('gel-disp-idle').textContent    = booths.filter(b => b.status === 'IDLE').length;
+
+  const gelWaits = DATA.detail_table.filter(r => r.transition === 'Sg Gel Disp → Sg Encap');
+  const avgGelWait = gelWaits.length
+    ? (gelWaits.reduce((s, r) => s + r.wait_d, 0) / gelWaits.length).toFixed(1) + 'd'
+    : '—';
+  document.getElementById('gel-disp-wait').textContent = avgGelWait;
+
+  document.getElementById('gel-dispensing-booth-grid').innerHTML = booths.map(b => {
+    const isRun = b.status === 'RUN';
+    const cur   = b.current || {};
+    const queue = Array.isArray(b.queue_items) ? b.queue_items : [];
+    const badge = isRun
+      ? `<span class="booth-run-badge">RUNNING</span>`
+      : `<span class="booth-idle-badge">IDLE${b.idle_h != null ? ' ' + b.idle_h + 'h' : ''}</span>`;
+
+    const queueHTML = queue.length
+      ? queue.map(q => `
+          <div style="padding:5px 14px 6px;border-top:1px solid var(--border)">
+            <div style="display:flex;justify-content:space-between;align-items:baseline;gap:6px">
+              <span style="font-size:11px;font-weight:700;color:var(--text);white-space:nowrap">WO ${q.wo}</span>
+              <span style="font-size:10px;color:var(--text2);white-space:nowrap">${q.item || ''}</span>
+            </div>
+            <div style="display:flex;justify-content:space-between;align-items:baseline;margin-top:2px;gap:6px">
+              <span style="font-size:10px;color:var(--text2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1">${q.desc || ''}</span>
+              ${q.run_h ? `<span style="font-size:10px;color:var(--amber);white-space:nowrap">${q.run_h}h</span>` : ''}
+              ${q.qty ? `<span style="font-size:10px;color:var(--text2);white-space:nowrap">×${q.qty}</span>` : ''}
+            </div>
+            <div style="font-size:10px;color:var(--text2);margin-top:2px">${q.start !== '—' ? '▶ ' + q.start : ''}</div>
+          </div>`).join('')
+      : `<div style="padding:6px 14px 8px;font-size:11px;color:var(--text2)">No orders in queue</div>`;
+
+    return `
+      <div class="booth-card">
+        <div class="booth-card-header">
+          <div>
+            <div class="booth-name">${b.short}</div>
+            <div class="booth-machine">${b.machine}</div>
+          </div>
+          ${badge}
+        </div>
+        <div class="booth-status-row">
+          <span class="${isRun ? 'status-run-dot' : 'status-idle-dot'}"></span>
+          ${isRun ? 'Running' : 'Idle'}
+        </div>
+        <div class="booth-body">
+          ${cur.wo ? `
+            <div class="booth-wo">WO: ${cur.wo}</div>
+            <div class="booth-item"><span>${cur.item || ''}</span></div>
+            <div class="booth-desc">${cur.desc || ''}</div>
+            <div class="booth-times">
+              <span class="lbl">▶</span><span class="val">${cur.start || '—'}</span>
+              <span class="lbl">■</span><span class="val">${cur.finish || '—'}</span>
+            </div>
+            <div class="booth-meta">
+              <span>Qty: <strong>${cur.qty || '—'}</strong></span>
+              <span>Run: <strong>${cur.duration || '—'}</strong></span>
+            </div>` : '<p style="color:var(--text2);font-size:12px;margin:0">No current job</p>'}
+        </div>
+        <div style="border-top:1px solid var(--border)">
+          <div style="padding:5px 14px 3px;display:flex;justify-content:space-between;align-items:baseline">
+            <span style="font-size:10px;color:var(--text2);text-transform:uppercase;letter-spacing:.6px">
+              Scheduled Queue${queue.length ? ' (' + queue.length + ')' : ''}
+            </span>
+            ${b.queue_total_h > 0 ? `<span style="font-size:11px;color:var(--amber);font-weight:700">${b.queue_total_h}h total</span>` : ''}
+          </div>
+          ${queueHTML}
+        </div>
+      </div>`;
+  }).join('');
+
+  renderGelDispensingGantt();
+}
+
 // ── Coating Gantt ─────────────────────────────────────────────────────────
 function renderCoatingGantt() {
   function parseSnap(s) {
@@ -4225,6 +4617,7 @@ function scheduleGanttChartsRedraw() {
   requestAnimationFrame(() => {
     renderBoothGantt();
     renderDispensingGantt();
+    renderGelDispensingGantt();
     renderCoatingGantt();
     renderPackagingGantt();
   });
@@ -4239,6 +4632,7 @@ function scheduleGanttChartsRedraw() {
       scheduled = false;
       renderBoothGantt();
       renderDispensingGantt();
+      renderGelDispensingGantt();
       renderCoatingGantt();
       renderPackagingGantt();
     });
@@ -4254,7 +4648,7 @@ function scheduleGanttChartsRedraw() {
 // ── tab switching ─────────────────────────────────────────────────────────
 function switchTab(tab) {
   document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-  ['overview', 'wc', 'coating', 'dispensing', 'packaging'].forEach(id => document.getElementById(id + '-view').classList.remove('active'));
+  ['overview', 'wc', 'coating', 'dispensing', 'gel-dispensing', 'packaging'].forEach(id => document.getElementById(id + '-view').classList.remove('active'));
   event.target.classList.add('active');
   document.getElementById(tab + '-view').classList.add('active');
   scheduleGanttChartsRedraw();
@@ -4301,6 +4695,7 @@ renderTable(DATA.detail_table);
 renderWCDetail();
 renderCoatingDetail();
 renderDispensingDetail();
+renderGelDispensingDetail();
 renderPackagingDetail();
 populateTransitions();
 
