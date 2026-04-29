@@ -65,7 +65,7 @@ MFG_SHEETS = {
     'encap_hard':  ['TC 5-Bosch'],
     'coating':     ['Coating 1','Coating 2','Coating 3'],
     'sg_gel_disp': ['SG Gel Disp 1','SG Gel Disp 2'],
-    'sg_med_disp': ['SG Med Disp 1','SG Med Disp 2','SG Med Disp 3'],
+    'sg_med_disp': ['SG Med Disp 1', 'SG Med Disp 2', 'SG Med Disp 3'],
     'sg_encap':    ['SG Encap 1','SG Encap 2','SG Encap 3'],
 }
 PKG_SHEETS = ['VFILLDU1','VFILLTRI','VFILLCR1','VFILLDU2','VFILLBL1']
@@ -531,12 +531,16 @@ for wo, steps in wo_steps.items():
     ptype = product_types.get(item, '')
     if ptype not in ('TC', 'TU', 'CH', 'SG'):
         continue
-    # grouping date = dispensing start (or sg_encap start for SG)
+    # grouping date = dispensing start (or med disp / sg_encap for SG)
     disp = (by_step.get('dispensing') or by_step.get('sg_gel_disp')
             or by_step.get('sg_med_disp') or by_step.get('sg_encap'))
     if not disp or not disp.get('start'):
         continue
-    date_str = disp['start'].strftime('%Y-%m-%d')
+
+    if ptype == 'SG' and by_step.get('sg_med_disp') and by_step['sg_med_disp'].get('start'):
+        date_str = by_step['sg_med_disp']['start'].strftime('%Y-%m-%d')
+    else:
+        date_str = disp['start'].strftime('%Y-%m-%d')
 
     if ptype == 'TC':
         if 'compression' not in by_step or 'coating' not in by_step:
@@ -568,11 +572,13 @@ for wo, steps in wo_steps.items():
             'encap_run':        get_run_h(by_step.get('encap_hard')),
         })
     elif ptype == 'SG':
-        if 'sg_encap' not in by_step:
+        if 'sg_med_disp' not in by_step or 'sg_encap' not in by_step:
             continue
         wo_ptype_entries.append({
             'date': date_str, 'type': ptype, 'wo': wo, 'item': item,
-            'sg_encap_run':  get_run_h(by_step.get('sg_encap')),
+            'sg_med_disp_run': get_run_h(by_step.get('sg_med_disp')),
+            'med_encap_wait':  get_wait_h_between(by_step, 'sg_med_disp', 'sg_encap'),
+            'sg_encap_run':    get_run_h(by_step.get('sg_encap')),
         })
 
 # Add packaging wait + duration per item (averaged across all pkg records)
@@ -619,13 +625,13 @@ PTYPE_FIELDS = {
     'TC': ['disp_run','disp_comp_wait','comp_run','comp_coat_wait','coat_run','pkg_wait','pkg_run'],
     'TU': ['disp_run','disp_comp_wait','comp_run','pkg_wait','pkg_run'],
     'CH': ['disp_run','disp_encap_wait','encap_run','pkg_wait','pkg_run'],
-    'SG': ['sg_encap_run','pkg_wait','pkg_run'],
+    'SG': ['sg_med_disp_run','med_encap_wait','sg_encap_run','pkg_wait','pkg_run'],
 }
 PTYPE_LABELS = {
     'TC': ['Dispensing','Wait → Compression','Compression','Wait → Coating','Coating','Wait → Packaging','Packaging'],
     'TU': ['Dispensing','Wait → Compression','Compression','Wait → Packaging','Packaging'],
-    'CH': ['Dispensing','Wait → Encapsulation','Encapsulation','Wait → Packaging','Packaging'],
-    'SG': ['SG Encapsulation','Wait → Packaging','Packaging'],
+    'CH': ['Dispensing','Wait → Compression','Compression','Wait → Packaging','Packaging'],
+    'SG': ['Med dispensing','Wait → Encapsulation','Encapsulation','Wait → Packaging','Packaging'],
 }
 # Solid colors for active steps, lighter/dashed-border for wait segments
 PTYPE_COLORS = {
@@ -653,16 +659,18 @@ PTYPE_COLORS = {
         ('#6dd96d','#6dd96d'),
     ],
     'SG': [
-        ('#7eb8d4','#7eb8d4'),
-        ('#b8dce8','#7eb8d4'),
-        ('#6dd96d','#6dd96d'),
+        ('#e040a8','#e040a8'),  # Med dispensing — pink (aligned with tablet dispensing)
+        ('#c8e8f5','#7eb8d4'),  # Wait → Encapsulation
+        ('#7eb8d4','#7eb8d4'),  # Encapsulation
+        ('#b8dce8','#7eb8d4'),  # Wait → Packaging
+        ('#6dd96d','#6dd96d'),  # Packaging
     ],
 }
 PTYPE_IS_WAIT = {
     'TC': [False, True, False, True, False, True, False],
     'TU': [False, True, False, True, False],
     'CH': [False, True, False, True, False],
-    'SG': [False, True, False],
+    'SG': [False, True, False, True, False],
 }
 
 ptype_chart = {}
