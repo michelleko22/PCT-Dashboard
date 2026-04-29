@@ -312,7 +312,10 @@ footer {
   .booth-grid { grid-template-columns: repeat(2, 1fr); }
   .booth-grid--coating { grid-template-columns: 1fr; }
 }
-/* Bottom timetable charts: use full viewport width */
+/* Bottom timetable charts: full width of inset column (matches .panel margin above) */
+.gantt-timetable-section {
+  padding: 16px 24px 0;
+}
 .gantt-chart-wrap {
   width: 100%;
   min-width: 0;
@@ -483,9 +486,9 @@ footer {
     <div class="booth-grid" id="booth-grid"></div>
   </div>
 
-  <!-- bottom: Booth schedule Gantt — full width -->
-  <div style="padding:16px 0 0">
-    <div class="panel" style="border-radius:0;border-left:none;border-right:none;border-bottom:none">
+  <!-- bottom: Booth schedule Gantt (horizontal inset matches booth panels above) -->
+  <div class="gantt-timetable-section">
+    <div class="panel">
       <div class="panel-header" style="padding:12px 24px 10px">
         <span class="panel-title">Compression Schedule — Timetable</span>
         <span style="display:flex;gap:14px;align-items:center">
@@ -549,8 +552,8 @@ footer {
     <div class="booth-grid booth-grid--coating" id="coating-booth-grid"></div>
   </div>
 
-  <div style="padding:16px 0 0">
-    <div class="panel" style="border-radius:0;border-left:none;border-right:none;border-bottom:none">
+  <div class="gantt-timetable-section">
+    <div class="panel">
       <div class="panel-header" style="padding:12px 24px 10px">
         <span class="panel-title">Coating Schedule — Timetable</span>
         <span style="display:flex;gap:14px;align-items:center">
@@ -611,8 +614,8 @@ footer {
     <div class="booth-grid" id="dispensing-booth-grid"></div>
   </div>
 
-  <div style="padding:16px 0 0">
-    <div class="panel" style="border-radius:0;border-left:none;border-right:none;border-bottom:none">
+  <div class="gantt-timetable-section">
+    <div class="panel">
       <div class="panel-header" style="padding:12px 24px 10px">
         <span class="panel-title">Dispensing Schedule — Timetable</span>
         <span style="display:flex;gap:14px;align-items:center">
