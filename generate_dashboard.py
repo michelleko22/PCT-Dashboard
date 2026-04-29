@@ -624,7 +624,7 @@ PTYPE_FIELDS = {
 PTYPE_LABELS = {
     'TC': ['Dispensing','Wait → Compression','Compression','Wait → Coating','Coating','Wait → Packaging','Packaging'],
     'TU': ['Dispensing','Wait → Compression','Compression','Wait → Packaging','Packaging'],
-    'CH': ['Dispensing','Wait → Encapsulation','Encapsulation','Wait → Packaging','Packaging'],
+    'CH': ['Dispensing','Wait → Compression','Compression','Wait → Packaging','Packaging'],
     'SG': ['SG Encapsulation','Wait → Packaging','Packaging'],
 }
 # Solid colors for active steps, lighter/dashed-border for wait segments
