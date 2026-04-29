@@ -470,16 +470,25 @@ footer {
     <div class="booth-grid" id="booth-grid"></div>
   </div>
 
-  <!-- bottom: WC wait chart -->
-  <div style="padding:16px 24px 16px">
-    <div class="main-grid">
-      <div class="panel">
-        <div class="panel-header">
-          <span class="panel-title">Waiting Time by Work Centre (Outgoing)</span>
-        </div>
-        <div class="panel-body">
-          <div class="chart-wrap"><canvas id="wcBarChart"></canvas></div>
-        </div>
+  <!-- bottom: Booth schedule Gantt -->
+  <div style="padding:16px 24px 24px">
+    <div class="panel">
+      <div class="panel-header">
+        <span class="panel-title">Compression Schedule — Timetable</span>
+        <span style="display:flex;gap:14px;align-items:center">
+          <span style="font-size:11px;color:var(--text2);display:flex;align-items:center;gap:5px">
+            <span style="width:10px;height:10px;background:rgba(109,217,109,0.85);border-radius:2px;display:inline-block"></span>Running (IP)
+          </span>
+          <span style="font-size:11px;color:var(--text2);display:flex;align-items:center;gap:5px">
+            <span style="width:10px;height:10px;background:rgba(77,166,255,0.85);border-radius:2px;display:inline-block"></span>Released (R)
+          </span>
+          <span style="font-size:11px;color:var(--text2);display:flex;align-items:center;gap:5px">
+            <span style="width:10px;height:10px;background:rgba(245,166,35,0.85);border-radius:2px;display:inline-block"></span>Waiting (W)
+          </span>
+        </span>
+      </div>
+      <div class="panel-body">
+        <div class="chart-wrap" style="height:320px"><canvas id="boothGanttChart"></canvas></div>
       </div>
     </div>
   </div>
@@ -2571,6 +2580,149 @@ function renderTable(rows) {
 }
 
 // ── WC detail view ────────────────────────────────────────────────────────
+// ── Compression booth Gantt / timetable ──────────────────────────────────────
+function renderBoothGantt() {
+  function parseSnap(s) {
+    const m = s.match(/(\d+)\s+(\w+)\s+(\d+)\s+[^\d]+(\d+):(\d+)\s*(AM|PM)/i);
+    if (!m) return new Date();
+    let h = parseInt(m[4]);
+    if (/pm/i.test(m[6]) && h !== 12) h += 12;
+    if (/am/i.test(m[6]) && h === 12) h = 0;
+    return new Date(`${m[2]} ${m[1]} ${m[3]} ${String(h).padStart(2,'0')}:${m[5]}:00`);
+  }
+
+  function parseJobTime(str, year) {
+    if (!str || str === '—' || str === '—') return null;
+    const m = str.match(/(\d+)\s+(\w+),\s+(\d+):(\d+)/);
+    if (!m) return null;
+    return new Date(`${m[2]} ${m[1]} ${year} ${m[3]}:${m[4]}:00`);
+  }
+
+  function fmtMs(ms) {
+    const d = new Date(ms);
+    const mon = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][d.getMonth()];
+    return `${d.getDate()} ${mon} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+  }
+
+  const snap    = parseSnap(DATA.snapshot_str);
+  const snapMs  = snap.getTime();
+  const snapYear = snap.getFullYear();
+  const booths  = DATA.compression_booths;
+
+  // Build per-booth bar lists
+  const boothBars = booths.map(b => {
+    const bars = [];
+
+    if (b.current && b.current.wo) {
+      const cur = b.current;
+      const s   = parseJobTime(cur.start, snapYear);
+      const f   = parseJobTime(cur.finish, snapYear);
+      const sMs = s ? s.getTime() : snapMs - (cur.run_h || 8) * 3600000;
+      const fMs = f ? f.getTime() : sMs + (cur.run_h || 8) * 3600000;
+      bars.push({ start: sMs, end: fMs, wo: cur.wo, desc: cur.desc, run_h: cur.run_h, status: 'ip' });
+    }
+
+    // Queue: stack sequentially after running job (or after now if idle)
+    let nextMs = bars.length ? bars[bars.length - 1].end : snapMs;
+    for (const q of (b.queue_items || [])) {
+      const dur = ((q.run_h || 0) + (q.clean_h || 0)) * 3600000 || 4 * 3600000;
+      bars.push({ start: nextMs, end: nextMs + dur, wo: q.wo, desc: q.desc, run_h: q.run_h, status: q.status || 'r' });
+      nextMs += dur;
+    }
+
+    return bars;
+  });
+
+  // Time window: 36 h before snap → end of last queued job (min 24 h ahead)
+  const allEnds  = boothBars.flatMap(b => b.map(x => x.end));
+  const winStart = snapMs - 36 * 3600000;
+  const winEnd   = Math.max(snapMs + 24 * 3600000, ...allEnds) + 2 * 3600000;
+
+  const COLORS = {
+    ip: 'rgba(109,217,109,0.85)',
+    r:  'rgba(77,166,255,0.85)',
+    w:  'rgba(245,166,35,0.85)',
+  };
+
+  const maxSlots = Math.max(0, ...boothBars.map(b => b.length));
+  const datasets = Array.from({ length: maxSlots }, (_, slot) => ({
+    label: slot === 0 ? 'Running' : `Queue ${slot}`,
+    data: boothBars.map(bars => bars[slot] ? [bars[slot].start, bars[slot].end] : null),
+    backgroundColor: boothBars.map(bars => bars[slot] ? (COLORS[bars[slot].status] || COLORS.r) : 'transparent'),
+    borderRadius: 4,
+    barPercentage: 0.6,
+  }));
+
+  // Red dashed "NOW" line drawn as a plugin
+  const nowLine = {
+    id: 'nowLine',
+    afterDraw(chart) {
+      const xScale = chart.scales.x;
+      const x = xScale.getPixelForValue(snapMs);
+      if (x < xScale.left || x > xScale.right) return;
+      const { ctx: c, chartArea: { top, bottom } } = chart;
+      c.save();
+      c.strokeStyle = '#ff6b6b';
+      c.lineWidth = 2;
+      c.setLineDash([5, 4]);
+      c.beginPath(); c.moveTo(x, top); c.lineTo(x, bottom); c.stroke();
+      c.setLineDash([]);
+      c.fillStyle = '#ff6b6b';
+      c.font = 'bold 10px sans-serif';
+      c.fillText('NOW', x + 4, top + 13);
+      c.restore();
+    }
+  };
+
+  const ctx = document.getElementById('boothGanttChart').getContext('2d');
+  new Chart(ctx, {
+    type: 'bar',
+    plugins: [nowLine],
+    data: { labels: booths.map(b => b.short), datasets },
+    options: {
+      indexAxis: 'y',
+      responsive: true,
+      maintainAspectRatio: false,
+      scales: {
+        x: {
+          type: 'linear',
+          min: winStart,
+          max: winEnd,
+          grid: { color: 'rgba(255,255,255,.05)' },
+          ticks: { color: '#b8ccb5', maxTicksLimit: 8, callback: v => fmtMs(v) },
+        },
+        y: {
+          grid: { display: false },
+          ticks: { color: '#b8ccb5', font: { size: 12 } },
+        },
+      },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            title: items => {
+              const b = booths[items[0].dataIndex];
+              return b ? `${b.short} — ${b.machine}` : '';
+            },
+            label: item => {
+              if (item.raw === null) return null;
+              const bar = boothBars[item.dataIndex]?.[item.datasetIndex];
+              if (!bar) return null;
+              const st = bar.status === 'ip' ? 'RUNNING' : bar.status === 'r' ? 'Released' : 'Waiting';
+              return [
+                `WO ${bar.wo}  [${st}]`,
+                bar.desc || '',
+                `${bar.run_h || '?'}h run`,
+                `${fmtMs(bar.start)} → ${fmtMs(bar.end)}`,
+              ].filter(Boolean);
+            },
+          },
+        },
+      },
+    },
+  });
+}
+
 function renderWCDetail() {
   const d = DATA.kpi;
 
@@ -2653,39 +2805,7 @@ function renderWCDetail() {
       </div>`;
   }).join('');
 
-  // WC bar chart
-  const wcWaits = {};
-  DATA.detail_table.forEach(r => {
-    if (!wcWaits[r.wc_from]) wcWaits[r.wc_from] = [];
-    wcWaits[r.wc_from].push(r.wait_d);
-  });
-  const wcEntries = Object.entries(wcWaits)
-    .map(([k,v]) => ({wc:k, avg: v.reduce((s,x)=>s+x,0)/v.length}))
-    .sort((a,b) => b.avg - a.avg).slice(0,8);
-
-  const ctx2 = document.getElementById('wcBarChart').getContext('2d');
-  new Chart(ctx2, {
-    type: 'bar',
-    data: {
-      labels: wcEntries.map(e => e.wc),
-      datasets: [{
-        data: wcEntries.map(e => +e.avg.toFixed(2)),
-        backgroundColor: wcEntries.map(e => colorFor(e.avg)),
-        borderRadius: 4,
-      }]
-    },
-    options: {
-      indexAxis: 'y',
-      responsive: true, maintainAspectRatio: false,
-      plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => ` ${c.raw}d avg wait after` } } },
-      scales: {
-        x: { grid: { color: 'rgba(255,255,255,.05)' }, ticks: { color: '#b8ccb5' },
-              title: { display: true, text: 'Avg Wait Days', color: '#b8ccb5', font:{size:11} } },
-        y: { grid: { display: false }, ticks: { color: '#b8ccb5', font: {size:11} } }
-      }
-    }
-  });
-
+  renderBoothGantt();
 }
 
 // ── tab switching ─────────────────────────────────────────────────────────
